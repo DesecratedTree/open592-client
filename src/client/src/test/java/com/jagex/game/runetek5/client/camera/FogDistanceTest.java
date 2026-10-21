@@ -137,6 +137,18 @@ class FogDistanceTest {
 			FogDistance.getTargetFog());
 	}
 
+	@Test
+	@DisplayName("scaleDistance tracks the smoothed fog level")
+	void scaleDistance_should_scaleBase_when_converged() {
+		assertEquals(984, FogDistance.scaleDistance(984));
+
+		convergeFog(64);
+		assertEquals(246, FogDistance.scaleDistance(984));
+
+		convergeFog(1024);
+		assertEquals(3936, FogDistance.scaleDistance(984));
+	}
+
 	private static void convergeFog(int target) {
 		FogDistance.setTarget(target);
 		for (int i = 0; i < 1000 && FogDistance.getCurrentFog() != target; i++) {

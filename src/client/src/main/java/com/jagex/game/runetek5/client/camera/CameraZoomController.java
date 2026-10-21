@@ -4,7 +4,7 @@ import com.jagex.game.runetek5.deob.Static384;
 
 /**
  * Routes mouse-wheel input between OSHD-style camera zoom, OSHD-style fog
- * distance, and the legacy chat/interface scroll path.
+ * and render distance, and the legacy chat/interface scroll path.
  *
  * <p>When Ctrl is held the wheel delta is consumed into
  * {@link CameraZoom#adjustTarget(int)}, and when Alt is held without Ctrl it
@@ -88,8 +88,8 @@ public final class CameraZoomController {
 	}
 
 	/**
-	 * Reads live keyboard state, applying fog distance when Alt is held
-	 * without Ctrl and zoom when Ctrl is held without Shift, and returns the
+	 * Reads live keyboard state, applying fog and render distance when Alt is
+	 * held without Ctrl and zoom when Ctrl is held without Shift, and returns the
 	 * residual wheel delta for the legacy path (0 when consumed). Alt+Ctrl
 	 * resolves to zoom; Ctrl+Shift and plain wheel pass through untouched.
 	 */

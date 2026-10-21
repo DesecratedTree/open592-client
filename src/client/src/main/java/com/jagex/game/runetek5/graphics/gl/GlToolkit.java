@@ -509,6 +509,13 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "Dg", descriptor = "I")
 	public int anInt2312;
 
+	/**
+	 * Scene far plane before user fog scaling. The effective far plane in
+	 * anInt2312 is this value scaled by the smoothed fog level, so
+	 * projection, culling and fog all follow one render-distance control.
+	 */
+	private int sceneFarPlane = 3584;
+
 	@OriginalMember(owner = "client!fd", name = "zg", descriptor = "F")
 	public float aFloat74;
 
@@ -2219,11 +2226,13 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "ia", descriptor = "(II)V")
 	@Override
 	public void ia(@OriginalArg(0) int near, @OriginalArg(1) int far) {
-		if (near == this.zNear && far == this.anInt2312) {
+		int effectiveFar = FogDistance.scaleDistance(far);
+		if (near == this.zNear && far == this.sceneFarPlane && effectiveFar == this.anInt2312) {
 			return;
 		}
 		this.zNear = near;
-		this.anInt2312 = far;
+		this.sceneFarPlane = far;
+		this.anInt2312 = effectiveFar;
 		this.method1923();
 		this.updateFog();
 		if (this.anInt2319 == 3) {
@@ -2443,8 +2452,6 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		} else {
 			this.aFloat76 = (float) (this.anInt2312 - this.anInt2282) - this.aFloat57;
 			this.aFloat59 = this.aFloat76 - (float) this.anInt2315 * this.aFloat71;
-			this.aFloat76 *= FogDistance.getScale();
-			this.aFloat59 *= FogDistance.getScale();
 			if ((float) this.zNear > this.aFloat59) {
 				this.aFloat59 = this.zNear;
 			}
@@ -2462,13 +2469,14 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	}
 
 	/**
-	 * Re-pushes fog state after user fog-distance changes. Called from the
-	 * client tick only while the smoothed fog level is moving.
+	 * Re-applies the far plane and fog state after user fog-distance
+	 * changes. Called from the client tick only while the smoothed fog level
+	 * is moving.
 	 */
 	@Override
 	public void refreshFog() {
 		if (!this.aBoolean192) {
-			this.updateFog();
+			this.ia(this.zNear, this.sceneFarPlane);
 		}
 	}
 

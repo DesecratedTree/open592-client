@@ -12,6 +12,7 @@ import org.openrs2.deob.annotation.Pc;
 import com.jagex.game.runetek5.cache.node.MemoryPool;
 import com.jagex.game.runetek5.cache.node.PointLight;
 import com.jagex.game.runetek5.cache.node.lru.LRUCache;
+import com.jagex.game.runetek5.client.camera.FogDistance;
 import com.jagex.game.runetek5.config.material.MaterialType;
 import com.jagex.game.runetek5.config.rsinterface.ComponentSurface;
 import com.jagex.game.runetek5.deob.Class145_Sub2;
@@ -1350,7 +1351,7 @@ public final class JavaToolkit extends com.jagex.game.runetek5.graphics.Toolkit 
 	@Override
 	public void ia(@OriginalArg(0) int zNear, @OriginalArg(1) int zFar) {
 		this.anInt406 = zNear;
-		this.anInt405 = zFar;
+		this.anInt405 = FogDistance.scaleDistance(zFar);
 		this.anInt411 = this.anInt405 - 255;
 		this.method485();
 	}

@@ -1,12 +1,12 @@
 package com.jagex.game.runetek5.client.camera;
 
 /**
- * OSHD-style fog distance state.
+ * OSHD-style fog and render distance state.
  *
- * <p>Fog distance is expressed as a percentage of the scene's base fog range,
- * where {@code 256} is 100%. The renderer derives its base fog start/end from
- * the camera far plane and per-scene offsets, and this class scales both by
- * {@code currentFog / 256} so the fog band keeps its shape.
+ * <p>Fog distance is expressed as a percentage of the scene's base view
+ * range, where {@code 256} is 100%. The smoothed level scales the scene far
+ * plane, so render distance (projection, culling) and the derived fog
+ * start/end move together and the fog band keeps its shape.
  *
  * <p>Scrolling with Alt held adjusts the <em>target</em> in fixed steps; the
  * render loop eases {@code currentFog} toward it once per tick so motion is
@@ -92,6 +92,15 @@ public final class FogDistance {
 	/** Returns the smoothed fog level as a scale factor (1.0 at default). */
 	public static float getScale() {
 		return (float) currentFog / (float) FOG_DEFAULT;
+	}
+
+	/**
+	 * Scales a base distance (far plane or fog range) by the smoothed fog
+	 * level. Render distance and fog share this scale so one control moves
+	 * both together.
+	 */
+	public static int scaleDistance(int baseDistance) {
+		return (int) ((long) baseDistance * (long) currentFog / (long) FOG_DEFAULT);
 	}
 
 	public static void reset() {
