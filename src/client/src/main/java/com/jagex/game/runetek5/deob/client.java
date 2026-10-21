@@ -1232,8 +1232,6 @@ public final class client extends GameShell {
 			Static1.anInt5 = 100;
 		} else if (Static1.anInt5 == 100) {
 			EmissiveTriangle.method696(MonoStereoData.aClass19_16, GlGround.aClass76_60, Static209.aClass76_48);
-			Class4_Sub18.method2034(742);
-			Class4_Sub18.method2034(882);
 			Shadow.aString53 = StringNode.aClass83_109.method2267(NativeBillboardFace.anInt3423);
 			GlFramebuffer.anInt4590 = 60;
 			Huffman.method2932(5);
@@ -1292,6 +1290,8 @@ public final class client extends GameShell {
 				KeyRecordEntry.aClass26_1 = new Class26(DynamicWall.aClass121_3, NativeBillboardFace.anInt3423, SpotAnimation.aClass76_17);
 				Js5ResourceRequest.aClass223_1 = new Class223(DynamicWall.aClass121_3, NativeBillboardFace.anInt3423, Isaac.aClass76_20);
 				NPCType.method5586(TileLighting.aClass76_50, Static209.aClass76_48, CollisionMap.aClass76_82, GlGround.aClass76_60);
+				Class4_Sub18.method2034(742);
+				Class4_Sub18.method2034(882);
 				ParticleEffector.method2730(Static366.aClass76_83);
 				GlShadowMap.aClass62_1 = new Class62(NativeBillboardFace.anInt3423, Class48.aClass76_70, ByteArrayWrapper.aClass76_11);
 				Class145_Sub1.aClass81_2 = new QuickchatMessageTypeList(NativeBillboardFace.anInt3423, Class48.aClass76_70, ByteArrayWrapper.aClass76_11, new Class130());

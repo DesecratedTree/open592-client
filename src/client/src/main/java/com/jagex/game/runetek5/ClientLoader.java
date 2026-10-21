@@ -18,7 +18,7 @@ public class  ClientLoader extends Applet {
     public static String world;
     public static String serverIp = "127.0.0.1";
     public JFrame frame;
-    public static final String version = "1";
+    public static final String version = "0.1_a1";
     private final JPanel jp = new JPanel();
 
     public static Properties aProperties1 = new Properties();

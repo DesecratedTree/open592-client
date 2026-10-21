@@ -145,9 +145,6 @@ public final class Class4_Sub18 extends Country {
 							throw new IllegalStateException("if1");
 						}
 						local78.method5304(new Packet(local66));
-						if (arg0 == 742 || arg0 == 744 || arg0 == 882) {
-							System.out.println("[if" + arg0 + "] id=" + local52 + " type=" + local78.anInt6840 + " code=" + local78.anInt6772 + " hidden=" + local78.hidden + " name=" + local78.name + " str66=" + local78.aString66 + " str67=" + local78.aString67 + " str64=" + local78.aString64 + " opts=" + (local78.options == null ? "null" : java.util.Arrays.toString(local78.options)));
-						}
 					}
 				}
 			}
