@@ -100,6 +100,41 @@ class FogDistanceTest {
 	}
 
 	@Test
+	@DisplayName("scaleDistance saturates at the int limit instead of wrapping negative")
+	void scaleDistance_shouldSaturate_whenScaledDistanceOverflows() {
+		// Item icon generation renders into a 36x32 buffer with
+		// ia(50, Integer.MAX_VALUE) to mean "no fog". Scaling that far plane
+		// used to overflow for any fog level above the default, producing a
+		// negative far plane that culled every triangle, so item sprites
+		// came out blank in the inventory.
+		int[] fogLevels = { FogDistance.FOG_MIN, FogDistance.FOG_DEFAULT, 272, FogDistance.FOG_MAX };
+		for (int level : fogLevels) {
+			FogDistance.setForTest(level, level);
+
+			int far = FogDistance.scaleDistance(Integer.MAX_VALUE);
+			assertTrue(far > 0, "far plane must stay positive for fog " + level);
+			if (level >= FogDistance.FOG_DEFAULT) {
+				assertEquals(Integer.MAX_VALUE, far, "far plane saturates for fog " + level);
+			}
+		}
+	}
+
+	@Test
+	@DisplayName("scaleDistance keeps ordinary distances positive at every fog level")
+	void scaleDistance_shouldStayPositive_when_sceneDistancesAreScaled() {
+		int[] fogLevels = { FogDistance.FOG_MIN, FogDistance.FOG_DEFAULT, FogDistance.FOG_MAX };
+		for (int level : fogLevels) {
+			FogDistance.setForTest(level, level);
+
+			assertTrue(FogDistance.scaleDistance(3584) > 0, "scene far plane for fog " + level);
+			// Scaling must be monotonic in the fog level: farther fog never
+			// draws the far plane closer than nearer fog does.
+			assertTrue(FogDistance.scaleDistance(3584) >= 3584 * FogDistance.FOG_MIN / FogDistance.FOG_DEFAULT,
+				"monotonic far plane for fog " + level);
+		}
+	}
+
+	@Test
 	@DisplayName("scaledTileRadius follows the smoothed fog level")
 	void scaledTileRadius_should_scaleBase_atEachLimit() {
 		FogDistance.setBaseTileRadius(32);

@@ -58,6 +58,24 @@ tasks.withType(JavaCompile).configureEach {
     }
 }
 
+// LWJGL HD renderer (always-on high-detail toolkit): BOM-aligned modules.
+// lwjgl3-awt 0.2.3 was built against LWJGL 3.3.5, the closest 3.3.x pairing
+// for LWJGL 3.3.6; both target Java 8. Newer lwjgl3-awt releases track
+// LWJGL 3.4.x, so stay on this pair until the whole build leaves Java 8.
+def lwjglVersion = '3.3.6'
+def lwjglAwtVersion = '0.2.3'
+// Natives for every supported desktop OS so the same build (and the fat
+// client jar, which bundles the client runtime classpath) runs anywhere.
+// LWJGL picks the current platform's jar at runtime; the rest stay inert.
+def lwjglNatives = [
+    'natives-windows',
+    'natives-windows-arm64',
+    'natives-linux',
+    'natives-linux-arm64',
+    'natives-macos',
+    'natives-macos-arm64'
+]
+
 dependencies {
     // Stubs for the Microsoft/Netscape classes the client references
     // (same jar the matcher runs use as shared classpath).
@@ -65,6 +83,31 @@ dependencies {
     clientImplementation files('src/lib/stub.jar')
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    implementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
+    implementation 'org.lwjgl:lwjgl'
+    implementation 'org.lwjgl:lwjgl-jawt'
+    implementation 'org.lwjgl:lwjgl-opengl'
+    // transitive=false: the awt POM carries a non-optional dependency with
+    // a literal ${lwjgl.natives} classifier, fed only by Maven OS profiles
+    // that Gradle does not apply, which breaks resolution. The modules it
+    // needs (lwjgl, lwjgl-jawt, lwjgl-opengl) are declared explicitly above
+    // and version-aligned by the BOM, so nothing is lost.
+    implementation("org.lwjglx:lwjgl3-awt:${lwjglAwtVersion}") {
+        transitive = false
+    }
+    clientImplementation platform("org.lwjgl:lwjgl-bom:${lwjglVersion}")
+    clientImplementation 'org.lwjgl:lwjgl'
+    clientImplementation 'org.lwjgl:lwjgl-jawt'
+    clientImplementation 'org.lwjgl:lwjgl-opengl'
+    clientImplementation("org.lwjglx:lwjgl3-awt:${lwjglAwtVersion}") {
+        transitive = false
+    }
+    lwjglNatives.each { classifier ->
+        runtimeOnly "org.lwjgl:lwjgl::${classifier}"
+        runtimeOnly "org.lwjgl:lwjgl-opengl::${classifier}"
+        clientRuntimeOnly "org.lwjgl:lwjgl::${classifier}"
+        clientRuntimeOnly "org.lwjgl:lwjgl-opengl::${classifier}"
+    }
 }
 
 tasks.named('test') {
@@ -73,9 +116,9 @@ tasks.named('test') {
 
 // Shared launch setup for the client run profile: the isolated client
 // output, Java 8 (the deob is Java 6-era code: Applet, Pack200; compilation
-// targets Java 8 either via --release or source/target 1.8). jaclib/jaggl
-// are not shipped with the build: the client extracts the build matching the
-// running platform out of JS5 index 30 and loads it from the Jagex cache.
+// targets Java 8 either via --release or source/target 1.8). The HD toolkit
+// is LWJGL (Maven natives, see dependencies above); the legacy jaclib/jaggl
+// path survives only inside GlToolkit for reference and is no longer used.
 def osName = System.getProperty('os.name').toLowerCase()
 def configureClientRun = { JavaExec task, String description ->
     task.group = 'application'

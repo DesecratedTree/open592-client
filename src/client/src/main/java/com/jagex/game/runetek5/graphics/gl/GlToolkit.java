@@ -790,7 +790,12 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@Override
 	public void X(@OriginalArg(0) int arg0, @OriginalArg(1) int arg1, @OriginalArg(2) int arg2, @OriginalArg(3) int[] arg3) {
 		@Pc(28) float local28 = (float) arg2 * this.aClass31_Sub1_4.aFloat199 + this.aClass31_Sub1_4.aFloat203 * (float) arg1 + this.aClass31_Sub1_4.aFloat206 * (float) arg0 + this.aClass31_Sub1_4.aFloat198;
-		if ((float) this.zNear > local28 || local28 > (float) this.anInt2312) {
+		// Only the near plane culls here. The far plane is a fog-derived limit
+		// (see FogDistance), so rejecting against it dropped geometry (tile
+		// locs, wall pieces and the floors they hide) as soon as the fog level
+		// moved while the same tiles were still submitted around the camera.
+		// Beyond-far vertices stay in the projection and are clipped by it.
+		if ((float) this.zNear > local28) {
 			arg3[0] = arg3[1] = arg3[2] = -1;
 			return;
 		}
@@ -2756,7 +2761,9 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		if (local59 < 1.0F) {
 			local59 = 1.0F;
 		}
-		if ((float) this.zNear > local28 && (float) this.zNear > local59 || !(!(local28 > (float) this.anInt2312) || !(local59 > (float) this.anInt2312))) {
+		// Near plane only: see the matching note in X(). Far geometry stays in
+		// the projection so tile visibility never depends on the fog level.
+		if ((float) this.zNear > local28 && (float) this.zNear > local59) {
 			return false;
 		}
 		@Pc(123) int local123 = (int) ((float) this.anInt2309 * (this.aClass31_Sub1_4.aFloat202 * (float) arg0 + (float) arg1 * this.aClass31_Sub1_4.aFloat207 + (float) arg2 * this.aClass31_Sub1_4.aFloat208 + this.aClass31_Sub1_4.aFloat209) / local28);

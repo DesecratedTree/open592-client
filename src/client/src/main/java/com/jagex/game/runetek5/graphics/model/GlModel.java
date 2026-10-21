@@ -2537,7 +2537,10 @@ public final class GlModel extends Model {
 			local87 = (float) this.aShort26 + local77;
 			local93 = (float) -this.aShort26 + local69;
 		}
-		if (local93 >= this.glToolkit.farClipDistance || local87 <= (float) this.glToolkit.zNear) {
+		// Near plane only. farClipDistance follows the fog level, so culling
+		// against it made models (and the wall pieces closing a storey) vanish
+		// at a fog-dependent range instead of at the projection's clip plane.
+		if (local87 <= (float) this.glToolkit.zNear) {
 			return;
 		}
 		GameShell.aFloat30 = local13.aFloat202 * local22.aFloat207 + local22.aFloat204 * local13.aFloat207 + local13.aFloat208 * local22.aFloat203;
@@ -3572,7 +3575,8 @@ public final class GlModel extends Model {
 			local91 = (float) this.aShort26 + local81;
 			local98 = (float) -this.aShort26 + local73;
 		}
-		if (this.glToolkit.projectedFarClipDistance <= local98 || local91 <= (float) this.glToolkit.zNear) {
+		// Near plane only; see the note in the ortho path above.
+		if (local91 <= (float) this.glToolkit.zNear) {
 			return;
 		}
 		Class145_Sub1.aFloat222 = local13.aFloat202 * local16.aFloat209 + local13.aFloat207 * local16.aFloat205 + local16.aFloat198 * local13.aFloat208 + local13.aFloat209;

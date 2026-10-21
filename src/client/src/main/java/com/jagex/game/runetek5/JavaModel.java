@@ -3479,7 +3479,9 @@ public final class JavaModel extends Model {
 			local144 = local127 - this.radius;
 			local149 = local136 + this.radius;
 		}
-		if (local144 >= this.toolkit.anInt403 || local149 <= this.toolkit.anInt406) {
+		// Near plane only. anInt403 is the fog-scaled far plane, so culling
+		// against it made models drop out at a fog-dependent range.
+		if (local149 <= this.toolkit.anInt406) {
 			return;
 		}
 		@Pc(198) int local198 = (local12.anInt7329 << 15) + local12.anInt7334 * this.aClass31_Sub2_3.anInt7329 + local12.anInt7328 * this.aClass31_Sub2_3.anInt7324 + local12.anInt7332 * this.aClass31_Sub2_3.anInt7333;

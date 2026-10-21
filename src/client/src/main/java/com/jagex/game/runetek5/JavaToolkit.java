@@ -1373,7 +1373,9 @@ public final class JavaToolkit extends com.jagex.game.runetek5.graphics.Toolkit 
 	@Override
 	public void X(@OriginalArg(0) int arg0, @OriginalArg(1) int arg1, @OriginalArg(2) int arg2, @OriginalArg(3) int[] arg3) {
 		@Pc(23) int local23 = this.aClass31_Sub2_1.anInt7333 + (this.aClass31_Sub2_1.anInt7323 * arg0 + this.aClass31_Sub2_1.anInt7330 * arg1 + this.aClass31_Sub2_1.anInt7325 * arg2 >> 15);
-		if (local23 < this.anInt406 || local23 > this.anInt405) {
+		// Near plane only: anInt405 is the fog-scaled far plane, so rejecting
+		// against it made geometry disappear at a fog-dependent range.
+		if (local23 < this.anInt406) {
 			arg3[0] = arg3[1] = arg3[2] = -1;
 			return;
 		}
@@ -2007,7 +2009,8 @@ public final class JavaToolkit extends com.jagex.game.runetek5.graphics.Toolkit 
 		if (local52 < 1) {
 			local52 = 1;
 		}
-		if (local23 < this.anInt406 && local52 < this.anInt406 || !(local23 <= this.anInt405 || local52 <= this.anInt405)) {
+		// Near plane only; see the matching note in X().
+		if (local23 < this.anInt406 && local52 < this.anInt406) {
 			return false;
 		}
 		@Pc(104) int local104 = this.anInt416 * ((this.aClass31_Sub2_1.anInt7334 * arg0 + this.aClass31_Sub2_1.anInt7328 * arg1 + this.aClass31_Sub2_1.anInt7332 * arg2 >> 15) + this.aClass31_Sub2_1.anInt7329) / local23;

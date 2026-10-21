@@ -88,9 +88,23 @@ public final class FogDistance {
 	 * Scales a base distance (far plane or fog range) by the smoothed fog
 	 * level. Render distance and fog share this scale so one control moves
 	 * both together.
+	 *
+	 * <p>The result saturates at {@link Integer#MAX_VALUE} instead of
+	 * wrapping. Offscreen passes use {@code Integer.MAX_VALUE} as "no fog"
+	 * far plane (item icon generation calls {@code ia(50, Integer.MAX_VALUE)}),
+	 * and a wrapped value turns the far plane negative, which culls every
+	 * triangle and leaves the icon blank. Saturating keeps a huge far plane
+	 * huge at every fog level.
 	 */
 	public static int scaleDistance(int baseDistance) {
-		return (int) ((long) baseDistance * (long) currentFog / (long) FOG_DEFAULT);
+		long scaled = (long) baseDistance * (long) currentFog / (long) FOG_DEFAULT;
+		if (scaled > Integer.MAX_VALUE) {
+			return Integer.MAX_VALUE;
+		}
+		if (scaled < Integer.MIN_VALUE) {
+			return Integer.MIN_VALUE;
+		}
+		return (int) scaled;
 	}
 
 	/**
