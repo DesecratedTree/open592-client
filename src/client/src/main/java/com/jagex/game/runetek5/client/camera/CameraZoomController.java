@@ -6,48 +6,23 @@ import com.jagex.game.runetek5.deob.Static384;
  * Routes mouse-wheel input between OSHD-style camera zoom, OSHD-style fog
  * and render distance, and the legacy chat/interface scroll path.
  *
- * <p>When Ctrl is held the wheel delta is consumed into
- * {@link CameraZoom#adjustTarget(int)}, and when Alt is held without Ctrl it
- * is consumed into {@link FogDistance#adjustTarget(int)}; the caller must
- * <em>not</em> forward a consumed delta to the legacy scroll accumulator.
- * Otherwise the delta is returned untouched for plain-scroll handling.
+ * <p>A consumed delta must not reach the legacy scroll accumulator; an
+ * unconsumed one is returned untouched.
  */
 public final class CameraZoomController {
 
-	/** Jagex keycode for Ctrl (AWT VK_CONTROL maps to 82). */
-	public static final int JAGEX_KEY_CTRL = 82;
+	/** Jagex keycodes: Ctrl, Shift, Alt (AWT VK_CONTROL, VK_SHIFT, VK_ALT). */
+	private static final int JAGEX_KEY_CTRL = 82;
 
-	/** Jagex keycode for Shift (AWT VK_SHIFT maps to 81). */
-	public static final int JAGEX_KEY_SHIFT = 81;
+	private static final int JAGEX_KEY_SHIFT = 81;
 
-	/** Jagex keycode for Alt (AWT VK_ALT maps to 86). */
-	public static final int JAGEX_KEY_ALT = 86;
+	private static final int JAGEX_KEY_ALT = 86;
 
 	private CameraZoomController() {
 	}
 
-	public static boolean isControlHeld() {
-		try {
-			return Static384.aClass244_1 != null && Static384.aClass244_1.isKeyHeld(JAGEX_KEY_CTRL);
-		} catch (RuntimeException ex) {
-			return false;
-		}
-	}
-
-	public static boolean isShiftHeld() {
-		try {
-			return Static384.aClass244_1 != null && Static384.aClass244_1.isKeyHeld(JAGEX_KEY_SHIFT);
-		} catch (RuntimeException ex) {
-			return false;
-		}
-	}
-
-	public static boolean isAltHeld() {
-		try {
-			return Static384.aClass244_1 != null && Static384.aClass244_1.isKeyHeld(JAGEX_KEY_ALT);
-		} catch (RuntimeException ex) {
-			return false;
-		}
+	private static boolean isKeyHeld(int jagexKeycode) {
+		return Static384.aClass244_1 != null && Static384.aClass244_1.isKeyHeld(jagexKeycode);
 	}
 
 	/**
@@ -94,11 +69,11 @@ public final class CameraZoomController {
 	 * resolves to zoom; Ctrl+Shift and plain wheel pass through untouched.
 	 */
 	public static int routeWheel(int wheelNotches) {
-		if (tickFog(wheelNotches, isAltHeld(), isControlHeld())) {
+		if (tickFog(wheelNotches, isKeyHeld(JAGEX_KEY_ALT), isKeyHeld(JAGEX_KEY_CTRL))) {
 			CameraPreferences.save();
 			return 0;
 		}
-		if (tick(wheelNotches, isControlHeld(), isShiftHeld())) {
+		if (tick(wheelNotches, isKeyHeld(JAGEX_KEY_CTRL), isKeyHeld(JAGEX_KEY_SHIFT))) {
 			CameraPreferences.save();
 			return 0;
 		}

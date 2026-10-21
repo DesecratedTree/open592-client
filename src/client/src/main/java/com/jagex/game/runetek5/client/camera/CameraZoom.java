@@ -8,9 +8,10 @@ package com.jagex.game.runetek5.client.camera;
  * pitch ({@code (pitch >> 3) * 3 + 600}) and this class scales it:
  * {@code effectiveDistance = baseDistance * currentZoom / 256}.
  *
- * <p>Scrolling adjusts the <em>target</em> in fixed steps; the render loop
- * eases {@code currentZoom} toward it once per tick so motion is smooth
- * instead of jumping a full notch at a time.
+ * <p>Scrolling adjusts the <em>target</em> in fixed steps; the presentation
+ * layer eases {@code currentZoom} toward it once per frame (see
+ * {@link CameraEasing}) so motion is smooth instead of jumping a full notch at
+ * a time.
  */
 public final class CameraZoom {
 
@@ -22,9 +23,6 @@ public final class CameraZoom {
 
 	/** Zoom units added per wheel notch. Positive notches zoom out. */
 	public static final int STEP_PER_NOTCH = 24;
-
-	/** Exponential smoothing divisor applied per tick. */
-	public static final int SMOOTH_DIVISOR = 4;
 
 	private static int currentZoom = ZOOM_DEFAULT;
 
@@ -71,29 +69,10 @@ public final class CameraZoom {
 		setTarget(targetZoom + wheelNotches * STEP_PER_NOTCH);
 	}
 
-	/** Eases the current zoom one tick toward the target. */
-	public static int smoothStep() {
-		currentZoom = stepTowards(currentZoom, targetZoom);
+	/** Eases the current zoom for a frame duration; see {@link CameraEasing}. */
+	public static int smoothStep(int deltaMillis) {
+		currentZoom = CameraEasing.stepTowards(currentZoom, targetZoom, deltaMillis);
 		return currentZoom;
-	}
-
-	static int stepTowards(int current, int target) {
-		if (current == target) {
-			return current;
-		}
-		int remaining = target - current;
-		int step = remaining / SMOOTH_DIVISOR;
-		if (step == 0) {
-			step = remaining > 0 ? 1 : -1;
-		}
-		int next = current + step;
-		if (remaining > 0 && next > target) {
-			return target;
-		}
-		if (remaining < 0 && next < target) {
-			return target;
-		}
-		return next;
 	}
 
 	/** Scales a pitch-derived base distance by the smoothed zoom level. */

@@ -63,52 +63,6 @@ class CameraZoomTest {
 		assertEquals(128, CameraZoom.getTargetZoom());
 	}
 
-	@Test
-	@DisplayName("smoothStep converges to the target without overshoot")
-	void smoothStep_should_convergeWithoutOvershoot_when_targetAbove() {
-		CameraZoom.setTarget(448);
-
-		int ticks = 0;
-		int previous = CameraZoom.getCurrentZoom();
-		while (CameraZoom.getCurrentZoom() != CameraZoom.getTargetZoom() && ticks < 1000) {
-			int next = CameraZoom.smoothStep();
-			assertTrue(next >= previous && next <= 448,
-				"step must move monotonically toward the target, got " + next);
-			previous = next;
-			ticks++;
-		}
-
-		assertEquals(448, CameraZoom.getCurrentZoom());
-		assertTrue(ticks > 1, "smoothing must take several ticks, took " + ticks);
-	}
-
-	@Test
-	@DisplayName("smoothStep converges downward without undershoot and snaps the last unit")
-	void smoothStep_should_convergeAndSnap_when_targetBelow() {
-		CameraZoom.setForTest(300, 256);
-
-		int ticks = 0;
-		int previous = CameraZoom.getCurrentZoom();
-		while (CameraZoom.getCurrentZoom() != CameraZoom.getTargetZoom() && ticks < 1000) {
-			int next = CameraZoom.smoothStep();
-			assertTrue(next <= previous && next >= 256,
-				"step must move monotonically toward the target, got " + next);
-			previous = next;
-			ticks++;
-		}
-
-		assertEquals(256, CameraZoom.getCurrentZoom());
-		assertTrue(ticks > 1, "smoothing must take several ticks, took " + ticks);
-	}
-
-	@Test
-	@DisplayName("smoothStep snaps a single remaining unit in one tick")
-	void smoothStep_should_snap_when_oneUnitAway() {
-		CameraZoom.setForTest(255, 256);
-
-		assertEquals(256, CameraZoom.smoothStep());
-	}
-
 	@ParameterizedTest(name = "computeDistance({0}) == {1} at default zoom")
 	@CsvSource({
 		"1024, 984",
@@ -124,10 +78,10 @@ class CameraZoomTest {
 	@Test
 	@DisplayName("computeDistance scales with the smoothed zoom level")
 	void computeDistance_should_scaleWithZoom_when_zoomedToLimits() {
-		convergeZoom(128);
+		CameraZoom.setForTest(128, 128);
 		assertEquals(984 * 128 / 256, CameraZoom.computeDistance(1024));
 
-		convergeZoom(512);
+		CameraZoom.setForTest(512, 512);
 		assertEquals(984 * 512 / 256, CameraZoom.computeDistance(1024));
 	}
 
@@ -158,12 +112,5 @@ class CameraZoomTest {
 		assertTrue(CameraZoomController.tick(-2, true, false));
 		assertEquals(CameraZoom.ZOOM_DEFAULT - 2 * CameraZoom.STEP_PER_NOTCH,
 			CameraZoom.getTargetZoom());
-	}
-
-	private static void convergeZoom(int target) {
-		CameraZoom.setTarget(target);
-		for (int i = 0; i < 1000 && CameraZoom.getCurrentZoom() != target; i++) {
-			CameraZoom.smoothStep();
-		}
 	}
 }

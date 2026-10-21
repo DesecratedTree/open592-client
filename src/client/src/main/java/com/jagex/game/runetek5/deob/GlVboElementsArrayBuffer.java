@@ -14,6 +14,7 @@ import com.jagex.game.runetek5.toolkit.opengl.buffer.AbstractArbBufferGL;
 import jagex3.jagmisc.jagmisc;
 import com.jagex.game.runetek5.graphics.sprite.NativeSprite;
 import com.jagex.game.runetek5.deob.*;
+import com.jagex.game.runetek5.client.cycle.FrameRateLimit;
 import com.jagex.game.runetek5.config.material.texture.operation.TextureOpPerlinNoise;
 import com.jagex.game.runetek5.deob.Class126;
 import com.jagex.game.runetek5.deob.RuntimeException_Sub1;
@@ -596,6 +597,13 @@ public final class GlVboElementsArrayBuffer extends AbstractArbBufferGL implemen
 					TextureOpBrightness.aClass50_Sub1_1.anInt3437 = local106;
 				}
 				Static441.method5568("cpuusage=" + TextureOpBrightness.aClass50_Sub1_1.anInt3437);
+				return;
+			}
+			if (arg0.startsWith("maxfps")) {
+				if (arg0.length() > 6) {
+					FrameRateLimit.setConfiguredFps(ParticleProducerType.method3113(arg0.substring(6).trim()));
+				}
+				Static441.method5568("maxfps=" + FrameRateLimit.getConfiguredFps() + " (0 = uncapped)");
 				return;
 			}
 			if (arg0.startsWith("getclientvarpbit")) {

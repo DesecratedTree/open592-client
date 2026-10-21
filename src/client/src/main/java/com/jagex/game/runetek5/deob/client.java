@@ -266,9 +266,8 @@ import com.jagex.game.runetek5.deob.Class30;
 import com.jagex.game.runetek5.graphics.model.particle.EmissiveTriangle;
 import com.jagex.game.runetek5.deob.Class16_Sub5;
 import com.jagex.game.runetek5.cache.node.lru.LRUCache;
-import com.jagex.game.runetek5.client.camera.CameraZoom;
+import com.jagex.game.runetek5.client.frame.FramePresentation;
 import com.jagex.game.runetek5.client.camera.CameraZoomController;
-import com.jagex.game.runetek5.client.camera.FogDistance;
 import com.jagex.game.runetek5.client.camera.CameraPreferences;
 
 import com.jagex.game.runetek5.client.input.mouse.MiddleMouseCamera;
@@ -464,6 +463,8 @@ public final class client extends GameShell {
 		}
 		@Pc(19) long local19 = Class4_Sub1_Sub11.method2607() / 1000000L - Class4_Sub1_Sub11.aLong107;
 		Class4_Sub1_Sub11.aLong107 = Class4_Sub1_Sub11.method2607() / 1000000L;
+		// Presentation only: game state still advances in the tick alone.
+		this.presentation.beginFrame(local19);
 		@Pc(27) boolean local27 = Class120_Sub1.method4111();
 		if (local27 && TextureOpSquareWaveform.aBoolean666 && Class4_Sub43.aClass49_2 != null) {
 			Class4_Sub43.aClass49_2.method2064();
@@ -748,8 +749,8 @@ public final class client extends GameShell {
 
 	private final MiddleMouseCamera middleMouseCamera = new MiddleMouseCamera();
 
-	private int lastFogApplied = FogDistance.FOG_DEFAULT;
-
+	/** Per-frame presentation boundary; see {@code client.frame.FramePresentation}. */
+	private final FramePresentation presentation = new FramePresentation(this.middleMouseCamera);
 
 	@OriginalMember(owner = "client!client", name = "m", descriptor = "(I)V")
 	private void method899() {
@@ -775,21 +776,12 @@ public final class client extends GameShell {
 		Class136.method3438();
 		Static384.aClass244_1.method5487();
 		MaterialType.aClass80_1.method2236();
-		this.middleMouseCamera.update(MaterialType.aClass80_1);
 		if (PlayerEntity.aClass14_1 != null) {
 			// Ctrl (without Shift) + wheel zooms; Alt (without Ctrl) + wheel
 			// changes fog distance; Ctrl+Shift+wheel and plain wheel stay on
 			// the legacy scroll path (see CameraZoomController).
 			@Pc(85) int wheelNotches = PlayerEntity.aClass14_1.consumeWheelRotation();
 			PointLight.pendingWheelDelta = CameraZoomController.routeWheel(wheelNotches);
-		}
-		CameraZoom.smoothStep();
-		if (FogDistance.smoothStep() != this.lastFogApplied) {
-			this.lastFogApplied = FogDistance.getCurrentFog();
-			FileOnDisk.anInt4431 = FogDistance.scaledTileRadius();
-			if (MonoStereoData.aClass19_16 != null) {
-				MonoStereoData.aClass19_16.refreshFog();
-			}
 		}
 
 		if (MonoStereoData.aClass19_16 != null) {

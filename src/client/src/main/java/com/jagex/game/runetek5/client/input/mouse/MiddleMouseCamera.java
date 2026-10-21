@@ -2,7 +2,6 @@ package com.jagex.game.runetek5.client.input.mouse;
 
 import com.jagex.game.runetek5.deob.Class16_Sub2;
 import com.jagex.game.runetek5.deob.Static368;
-import com.jagex.game.runetek5.preference.Preference;
 
 public final class MiddleMouseCamera {
 
@@ -14,14 +13,20 @@ public final class MiddleMouseCamera {
 	private int lastX = -1;
 	private int lastY = -1;
 
-	public void update(Preference mouse) {
-		if (!mouse.method2237()) {
-			this.lastX = -1;
-			this.lastY = -1;
+	/**
+	 * Orbits the camera by the pointer movement since the previous call.
+	 *
+	 * <p>The caller supplies the sample, so it can pass the freshest pointer
+	 * position and orbit once per rendered frame instead of once per tick;
+	 * the movement is accumulated the same way either way.
+	 *
+	 * @param held whether the middle mouse button is down
+	 */
+	public void update(int x, int y, boolean held) {
+		if (!held) {
+			this.reset();
 			return;
 		}
-		int x = mouse.method2234();
-		int y = mouse.getDefaultValue();
 		if (this.lastX != -1) {
 			int deltaX = x - this.lastX;
 			int deltaY = y - this.lastY;
@@ -37,6 +42,15 @@ public final class MiddleMouseCamera {
 		}
 		this.lastX = x;
 		this.lastY = y;
+	}
+
+	/**
+	 * Forgets the previous sample so the next call starts a fresh delta, e.g.
+	 * after the pointer left the canvas.
+	 */
+	public void reset() {
+		this.lastX = -1;
+		this.lastY = -1;
 	}
 
 	private void clampAngles() {

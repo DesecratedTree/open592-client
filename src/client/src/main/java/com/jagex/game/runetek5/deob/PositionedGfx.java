@@ -13,6 +13,7 @@ import org.openrs2.deob.annotation.Pc;
 
 import com.jagex.game.runetek5.config.item.ItemType;
 import com.jagex.game.runetek5.config.sequence.SeqType;
+import com.jagex.game.runetek5.client.cycle.FrameRateStats;
 import com.jagex.game.runetek5.entity.PlayerEntity;
 import com.jagex.game.runetek5.entity.pathingentity.player.PlayerAppearance;
 import com.jagex.game.runetek5.graphics.font.AbstractFontRenderer;
@@ -271,8 +272,7 @@ public final class PositionedGfx extends CacheableNode {
 								}
 								local244 = local90 + local23.anInt6833;
 								local249 = local95 + 15;
-								if (MusicPatch.aBoolean507) {
-									Class6.aClass46_9.method5059("Fps:" + Class4_Sub6_Sub19.anInt3956, local249, -256, local244);
+								if (MusicPatch.aBoolean507) {										Class6.aClass46_9.method5059(FrameRateStats.getOverlayText(), local249, -256, local244);
 									local249 += 15;
 									@Pc(495) Runtime local495 = Runtime.getRuntime();
 									local505 = (int) ((local495.totalMemory() - local495.freeMemory()) / 1024L);
