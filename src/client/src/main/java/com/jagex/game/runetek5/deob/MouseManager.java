@@ -233,6 +233,22 @@ public final class MouseManager extends Preference implements MouseListener, Mou
 		return this.anInt2640;
 	}
 
+	/**
+	 * Freshest pointer x written by the AWT callbacks, without waiting for the
+	 * per-tick latch in {@link #method2236()}. Read-only: the click queue and
+	 * the latched state keep their tick cadence.
+	 */
+	@Override
+	public synchronized int getLatestX() {
+		return this.anInt2652;
+	}
+
+	/** Freshest pointer y; see {@link #getLatestX()}. */
+	@Override
+	public synchronized int getLatestY() {
+		return this.anInt2653;
+	}
+
 	@OriginalMember(owner = "client!gf", name = "mouseEntered", descriptor = "(Ljava/awt/event/MouseEvent;)V")
 	@Override
 	public synchronized void mouseEntered(@OriginalArg(0) MouseEvent arg0) {

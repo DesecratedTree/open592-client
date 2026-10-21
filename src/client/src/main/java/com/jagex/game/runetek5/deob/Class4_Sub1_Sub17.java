@@ -22,6 +22,7 @@ import com.jagex.game.runetek5.deob.Class4_Sub6_Sub7;
 import com.jagex.game.runetek5.deob.Class120;
 import com.jagex.game.runetek5.deob.Class50;
 import com.jagex.game.runetek5.deob.Class4_Sub6_Sub19;
+import com.jagex.game.runetek5.client.cycle.FrameRateStats;
 import com.jagex.game.runetek5.deob.TextureCombinerOp;
 import com.jagex.game.runetek5.Js5TextureSource;
 import com.jagex.game.runetek5.cache.node.lru.StructType;
@@ -165,7 +166,7 @@ public final class Class4_Sub1_Sub17 extends CacheableNode {
 		}
 		@Pc(232) int local232 = arg1 + arg0 - 5;
 		@Pc(238) int local238 = arg4 + arg5 - 8;
-		Class6.aClass46_9.method5059("Fps:" + Class4_Sub6_Sub19.anInt3956, local238, 16776960, local232);
+		Class6.aClass46_9.method5059(FrameRateStats.getOverlayText(), local238, 16776960, local232);
 		@Pc(253) int local253 = local238 - 15;
 		@Pc(255) Runtime local255 = Runtime.getRuntime();
 		@Pc(265) int local265 = (int) ((local255.totalMemory() - local255.freeMemory()) / 1024L);

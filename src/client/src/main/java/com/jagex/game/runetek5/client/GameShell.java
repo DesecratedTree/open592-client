@@ -21,10 +21,12 @@ import org.openrs2.deob.annotation.Pc;
 
 
 import com.jagex.game.runetek5.deob.GameCanvas;
+import com.jagex.game.runetek5.client.cycle.ClientFrameClock;
+import com.jagex.game.runetek5.client.cycle.FramePacer;
+import com.jagex.game.runetek5.client.cycle.FrameRateStats;
+import com.jagex.game.runetek5.client.cycle.TickBatch;
 import com.jagex.game.runetek5.deob.Static17;
 import com.jagex.game.runetek5.deob.Static173;
-import com.jagex.game.runetek5.deob.Static347;
-import com.jagex.game.runetek5.deob.Static411;
 import com.jagex.game.runetek5.deob.Static441;
 import com.jagex.game.runetek5.deob.Static458;
 import com.jagex.game.runetek5.sign.SignLink;
@@ -54,7 +56,6 @@ import com.jagex.game.runetek5.cache.node.lru.MonoStereoData;
 import com.jagex.game.runetek5.deob.Class83;
 import com.jagex.game.runetek5.deob.Class4_Sub6_Sub15;
 import com.jagex.game.runetek5.deob.Class4_Sub6_Sub38;
-import com.jagex.game.runetek5.deob.Class4_Sub6_Sub19;
 import com.jagex.game.runetek5.deob.Class93;
 import com.jagex.game.runetek5.deob.Class4_Sub18;
 import com.jagex.game.runetek5.config.material.texture.operation.TextureOpIrregularBricks;
@@ -75,7 +76,6 @@ import com.jagex.game.runetek5.deob.Class4_Sub6_Sub37;
 import com.jagex.game.runetek5.config.material.texture.operation.TextureOpMandelbrot;
 import com.jagex.game.runetek5.deob.Class92;
 import com.jagex.game.runetek5.GpuFaceNormal;
-import com.jagex.game.runetek5.deob.Class4_Sub12_Sub1;
 import com.jagex.game.runetek5.deob.Class10;
 import com.jagex.game.runetek5.deob.Class4_Sub6_Sub25;
 import com.jagex.game.runetek5.core.io.BufferedSocket;
@@ -103,6 +103,20 @@ public abstract class GameShell extends Applet implements Runnable, FocusListene
 
 	@OriginalMember(owner = "client!o", name = "f", descriptor = "Z")
 	private boolean jagmiscLoaded = false;
+
+	/**
+	 * Owns tick scheduling and the frame-rate ceiling for {@link #run()}:
+	 * ticks keep their fixed interval while frames run as fast as the
+	 * renderer and the ceiling allow.
+	 */
+	private final FramePacer pacer = new FramePacer();
+
+	/** Wall-clock stamp of the last canvas resync, in milliseconds. */
+	private long lastCanvasSyncMillis;
+
+	/** Ticks this run-loop iteration actually executed; see {@link #method892()}. */
+	private int executedTicks;
+
 
 	@OriginalMember(owner = "client!o", name = "a", descriptor = "(I)Z")
 	protected final boolean isHostnameValid() {
@@ -151,6 +165,9 @@ public abstract class GameShell extends Applet implements Runnable, FocusListene
 	public final void focusGained(@OriginalArg(0) FocusEvent event) {
 		ParticleProducerType.aBoolean359 = true;
 		TextureOpIrregularBricks.aBoolean189 = true;
+		// AWT callback: ask the loop to reset rather than touching its clock
+		// state from this thread.
+		this.pacer.requestReset();
 	}
 
 	@OriginalMember(owner = "client!o", name = "a", descriptor = "(ILjava/lang/String;)V")
@@ -178,6 +195,9 @@ public abstract class GameShell extends Applet implements Runnable, FocusListene
 	public final void start() {
 		if (Class174.anApplet_Sub1_2 == this && !FramebufferCompositor.aBoolean675) {
 			Static173.aLong118 = 0L;
+			// Applet lifecycle callback, off the loop thread: defer both resets.
+			this.pacer.requestReset();
+			FrameRateStats.requestReset();
 		}
 	}
 
@@ -345,7 +365,7 @@ public abstract class GameShell extends Applet implements Runnable, FocusListene
 			}
 			jagmisc.init();
 			this.jagmiscLoaded = true;
-			Class4_Sub12_Sub1.aClass36_1 = Class4_Sub6_Sub29.method4580();
+			ClientFrameClock.installDuringStartup(Class4_Sub6_Sub29.method4580());
 		} catch (@Pc(50) Throwable local50) {
 		}
 	}
@@ -459,15 +479,19 @@ public abstract class GameShell extends Applet implements Runnable, FocusListene
 				this.method874();
 				this.maininit();
 				System.out.println("[run] maininit done");
-				Class4_Sub12_Sub1.aClass36_1 = Class4_Sub6_Sub29.method4580();
 				this.method877();
+				// The pacer becomes the published frame clock; nothing else may be.
+				ClientFrameClock.install(this.pacer);
 				while (Static173.aLong118 == 0L || Class168.method3962() < Static173.aLong118) {
-					Static411.anInt6741 = Class4_Sub12_Sub1.aClass36_1.method2253(Class149.anInt4535);
-					for (local70 = 0; local70 < Static411.anInt6741; local70++) {
-						this.method870();
-					}
+					@Pc(20) int dueTicks = this.pacer.ticksDue(Class149.anInt4535);
+					// Never bound this on Static411.anInt6741: the tick path clears
+					// it mid-tick, which used to truncate a multi-tick frame to one.
+					this.executedTicks = TickBatch.run(dueTicks, this::method870);
 					this.method892();
-					Static441.method5566(Class126.aClass66_4, Class164.aCanvas5);
+					if (this.executedTicks > 0) {
+						Static441.method5566(Class126.aClass66_4, Class164.aCanvas5);
+					}
+					this.pacer.sleepToDeadline(Class149.anInt4535, ParticleProducerType.aBoolean359);
 				}
 				System.out.println("[run] loop ended aLong118=" + Static173.aLong118);
 			}
@@ -564,15 +588,16 @@ public abstract class GameShell extends Applet implements Runnable, FocusListene
 	@OriginalMember(owner = "client!o", name = "h", descriptor = "(I)V")
 	private void method892() {
 		@Pc(10) long local10 = Class168.method3962();
-		@Pc(14) long local14 = Static347.aLongArray8[Class4_Sub41.anInt6705];
-		Static347.aLongArray8[Class4_Sub41.anInt6705] = local10;
-		if (local14 != 0L && local10 > local14) {
-			@Pc(38) int local38 = (int) (local10 - local14);
-			Class4_Sub6_Sub19.anInt3956 = ((local38 >> 1) + 32000) / local38;
-		}
-		Class4_Sub41.anInt6705 = Class4_Sub41.anInt6705 + 1 & 0x1F;
-		if (Class4_Sub45.anInt7357++ > 50) {
-			Class4_Sub45.anInt7357 -= 50;
+		// Publish what the debug overlay prints: frames and ticks counted over
+		// the last second, so decoupled pacing can be read in game. The old
+		// reciprocal of one frame delta was scaled ~32x and knew nothing about
+		// ticks.
+		FrameRateStats.record(this.executedTicks, local10);
+		// Resync the canvas on a wall-clock interval: frames no longer run at
+		// tick rate, so counting frames here would resize and reposition the
+		// AWT canvas many times per second at high frame rates.
+		if (local10 - this.lastCanvasSyncMillis >= 1000L) {
+			this.lastCanvasSyncMillis = local10;
 			TextureOpIrregularBricks.aBoolean189 = true;
 			Class164.aCanvas5.setSize(GpuPointLight.anInt2881, EffectiveVertex.anInt5346);
 			Class164.aCanvas5.setVisible(true);

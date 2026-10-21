@@ -13,6 +13,7 @@ import org.openrs2.deob.annotation.Pc;
 
 
 import com.jagex.game.runetek5.ModeWhere;
+import com.jagex.game.runetek5.client.camera.CameraFollow;
 import com.jagex.game.runetek5.deob.*;
 import com.jagex.game.runetek5.entity.pathingentity.EasedAngle;
 import com.jagex.game.runetek5.config.material.texture.operation.TextureOpBrightness;
@@ -52,48 +53,20 @@ public final class Class3_Sub4 extends EntityNode {
 	public static void method3266(@OriginalArg(1) long arg0) {
 		@Pc(10) int local10 = anInt4024 + Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6893;
 		@Pc(15) int local15 = TextureOpBrightness.anInt5620 + Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6892;
-		if (JavaMatrix.anInt6578 - local10 < -500 || JavaMatrix.anInt6578 - local10 > 500 || MusicPatch.anInt5636 - local15 < -500 || MusicPatch.anInt5636 - local15 > 500) {
+		if (CameraFollow.shouldJump(JavaMatrix.anInt6578 - local10, MusicPatch.anInt5636 - local15)) {
 			JavaMatrix.anInt6578 = local10;
 			MusicPatch.anInt5636 = local15;
 		}
-		@Pc(61) int local61;
-		@Pc(69) int local69;
-		if (local10 != JavaMatrix.anInt6578) {
-			local61 = local10 - JavaMatrix.anInt6578;
-			local69 = (int) (arg0 * (long) local61 / 320L);
-			if (local61 > 0) {
-				if (local69 == 0) {
-					local69 = 1;
-				} else if (local69 > local61) {
-					local69 = local61;
-				}
-			} else if (local69 == 0) {
-				local69 = -1;
-			} else if (local69 < local61) {
-				local69 = local61;
-			}
-			JavaMatrix.anInt6578 += local69;
-		}
+		// Snappy follow: stock eased 20/320 of the gap per 20 ms frame, which
+		// left the player a tile or more ahead of the camera while walking
+		// and took the better part of a second to settle after stopping. The
+		// response lives in CameraFollow; this stays a single call per axis.
+		JavaMatrix.anInt6578 = CameraFollow.smoothStep(JavaMatrix.anInt6578, local10, arg0);
 		if (!TextureOpBrightness.aClass50_Sub1_1.aBoolean303) {
 			Class16_Sub2.aFloat142 += EasedAngle.aFloat28 * (float) arg0 / 6.0F;
 			Static368.aFloat192 += (float) arg0 * Static380.aFloat195 / 6.0F;
 		}
-		if (local15 != MusicPatch.anInt5636) {
-			local61 = local15 - MusicPatch.anInt5636;
-			local69 = (int) ((long) local61 * arg0 / 320L);
-			if (local61 > 0) {
-				if (local69 == 0) {
-					local69 = 1;
-				} else if (local61 < local69) {
-					local69 = local61;
-				}
-			} else if (local69 == 0) {
-				local69 = -1;
-			} else if (local69 < local61) {
-				local69 = local61;
-			}
-			MusicPatch.anInt5636 += local69;
-		}
+		MusicPatch.anInt5636 = CameraFollow.smoothStep(MusicPatch.anInt5636, local15, arg0);
 		JavaBillboardAttributes.method3855();
 	}
 }

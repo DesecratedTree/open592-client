@@ -10,8 +10,9 @@ package com.jagex.game.runetek5.client.camera;
  * together and the fog band keeps its shape.
  *
  * <p>Scrolling with Alt held adjusts the <em>target</em> in fixed steps; the
- * render loop eases {@code currentFog} toward it once per tick so motion is
- * smooth instead of jumping a full notch at a time.
+ * presentation layer eases {@code currentFog} toward it once per frame (see
+ * {@link CameraEasing}) so motion is smooth instead of jumping a full notch at
+ * a time.
  */
 public final class FogDistance {
 
@@ -23,9 +24,6 @@ public final class FogDistance {
 
 	/** Fog units added per wheel notch. Positive notches push fog farther out. */
 	public static final int STEP_PER_NOTCH = 16;
-
-	/** Exponential smoothing divisor applied per tick. */
-	public static final int SMOOTH_DIVISOR = 4;
 
 	private static int currentFog = FOG_DEFAULT;
 
@@ -80,34 +78,10 @@ public final class FogDistance {
 		setTarget(targetFog + wheelNotches * STEP_PER_NOTCH);
 	}
 
-	/** Eases the current fog level one tick toward the target. */
-	public static int smoothStep() {
-		currentFog = stepTowards(currentFog, targetFog);
+	/** Eases the current fog level for a frame duration; see {@link CameraEasing}. */
+	public static int smoothStep(int deltaMillis) {
+		currentFog = CameraEasing.stepTowards(currentFog, targetFog, deltaMillis);
 		return currentFog;
-	}
-
-	static int stepTowards(int current, int target) {
-		if (current == target) {
-			return current;
-		}
-		int remaining = target - current;
-		int step = remaining / SMOOTH_DIVISOR;
-		if (step == 0) {
-			step = remaining > 0 ? 1 : -1;
-		}
-		int next = current + step;
-		if (remaining > 0 && next > target) {
-			return target;
-		}
-		if (remaining < 0 && next < target) {
-			return target;
-		}
-		return next;
-	}
-
-	/** Returns the smoothed fog level as a scale factor (1.0 at default). */
-	public static float getScale() {
-		return (float) currentFog / (float) FOG_DEFAULT;
 	}
 
 	/**

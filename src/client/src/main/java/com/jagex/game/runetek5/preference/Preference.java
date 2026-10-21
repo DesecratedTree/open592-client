@@ -53,6 +53,23 @@ public abstract class Preference {
 	@OriginalMember(owner = "client!jn", name = "c", descriptor = "(I)I")
 	public abstract int getDefaultValue();
 
+	/**
+	 * Latest pointer x recorded by the input thread.
+	 *
+	 * <p>The stock path latches the pointer once per tick
+	 * ({@link #method2236()}); per-frame consumers such as the camera need
+	 * the freshest sample instead. Implementations without a separate input
+	 * thread fall back to the latched value.
+	 */
+	public int getLatestX() {
+		return this.method2234();
+	}
+
+	/** Latest pointer y recorded by the input thread; see {@link #getLatestX()}. */
+	public int getLatestY() {
+		return this.getDefaultValue();
+	}
+
 	@OriginalMember(owner = "client!jn", name = "a", descriptor = "(B)Lclient!os;")
 	public abstract Class4_Sub5 method2232();
 

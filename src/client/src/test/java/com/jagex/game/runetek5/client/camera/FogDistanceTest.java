@@ -58,56 +58,6 @@ class FogDistanceTest {
 		assertEquals(128, FogDistance.getTargetFog());
 	}
 
-	@Test
-	@DisplayName("smoothStep converges to the target without overshoot")
-	void smoothStep_should_convergeWithoutOvershoot_when_targetAbove() {
-		FogDistance.setTarget(405);
-
-		int ticks = 0;
-		int previous = FogDistance.getCurrentFog();
-		while (FogDistance.getCurrentFog() != FogDistance.getTargetFog() && ticks < 1000) {
-			int next = FogDistance.smoothStep();
-			assertTrue(next >= previous && next <= 405,
-				"step must move monotonically toward the target, got " + next);
-			previous = next;
-			ticks++;
-		}
-
-		assertEquals(405, FogDistance.getCurrentFog());
-		assertTrue(ticks > 1, "smoothing must take several ticks, took " + ticks);
-	}
-
-	@Test
-	@DisplayName("smoothStep converges downward without undershoot and snaps the last unit")
-	void smoothStep_should_convergeAndSnap_when_targetBelow() {
-		FogDistance.setForTest(300, 256);
-
-		int ticks = 0;
-		int previous = FogDistance.getCurrentFog();
-		while (FogDistance.getCurrentFog() != FogDistance.getTargetFog() && ticks < 1000) {
-			int next = FogDistance.smoothStep();
-			assertTrue(next <= previous && next >= 256,
-				"step must move monotonically toward the target, got " + next);
-			previous = next;
-			ticks++;
-		}
-
-		assertEquals(256, FogDistance.getCurrentFog());
-		assertTrue(ticks > 1, "smoothing must take several ticks, took " + ticks);
-	}
-
-	@Test
-	@DisplayName("getScale is 1.0 at default, 0.5 at min, 1.58 at max")
-	void getScale_should_matchLevel_when_converged() {
-		assertEquals(1.0f, FogDistance.getScale(), 0.0001f);
-
-		convergeFog(128);
-		assertEquals(0.5f, FogDistance.getScale(), 0.0001f);
-
-		convergeFog(405);
-		assertEquals(1.58203125f, FogDistance.getScale(), 0.0001f);
-	}
-
 	@ParameterizedTest(name = "tickFog({0}, alt={1}, ctrl={2}) consumes={3}")
 	@CsvSource({
 		"3, true, false, true",
@@ -139,26 +89,26 @@ class FogDistanceTest {
 
 	@Test
 	@DisplayName("scaleDistance tracks the smoothed fog level")
-	void scaleDistance_should_scaleBase_when_converged() {
+	void scaleDistance_should_scaleBase_atEachLimit() {
 		assertEquals(984, FogDistance.scaleDistance(984));
 
-		convergeFog(128);
+		FogDistance.setForTest(128, 128);
 		assertEquals(492, FogDistance.scaleDistance(984));
 
-		convergeFog(405);
+		FogDistance.setForTest(405, 405);
 		assertEquals(1556, FogDistance.scaleDistance(984));
 	}
 
 	@Test
 	@DisplayName("scaledTileRadius follows the smoothed fog level")
-	void scaledTileRadius_should_scaleBase_when_converged() {
+	void scaledTileRadius_should_scaleBase_atEachLimit() {
 		FogDistance.setBaseTileRadius(32);
 		assertEquals(32, FogDistance.scaledTileRadius());
 
-		convergeFog(128);
+		FogDistance.setForTest(128, 128);
 		assertEquals(16, FogDistance.scaledTileRadius());
 
-		convergeFog(405);
+		FogDistance.setForTest(405, 405);
 		assertEquals(50, FogDistance.scaledTileRadius());
 	}
 
@@ -167,12 +117,5 @@ class FogDistanceTest {
 	void maxTileRadius_should_fitWidestFog() {
 		assertEquals(50, FogDistance.maxTileRadius(32));
 		assertEquals(44, FogDistance.maxTileRadius(28));
-	}
-
-	private static void convergeFog(int target) {
-		FogDistance.setTarget(target);
-		for (int i = 0; i < 1000 && FogDistance.getCurrentFog() != target; i++) {
-			FogDistance.smoothStep();
-		}
 	}
 }
