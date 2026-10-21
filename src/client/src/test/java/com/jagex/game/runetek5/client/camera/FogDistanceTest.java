@@ -149,6 +149,26 @@ class FogDistanceTest {
 		assertEquals(3936, FogDistance.scaleDistance(984));
 	}
 
+	@Test
+	@DisplayName("scaledTileRadius follows the smoothed fog level")
+	void scaledTileRadius_should_scaleBase_when_converged() {
+		FogDistance.setBaseTileRadius(32);
+		assertEquals(32, FogDistance.scaledTileRadius());
+
+		convergeFog(64);
+		assertEquals(8, FogDistance.scaledTileRadius());
+
+		convergeFog(1024);
+		assertEquals(128, FogDistance.scaledTileRadius());
+	}
+
+	@Test
+	@DisplayName("maxTileRadius covers the widest fog setting")
+	void maxTileRadius_should_fitWidestFog() {
+		assertEquals(128, FogDistance.maxTileRadius(32));
+		assertEquals(112, FogDistance.maxTileRadius(28));
+	}
+
 	private static void convergeFog(int target) {
 		FogDistance.setTarget(target);
 		for (int i = 0; i < 1000 && FogDistance.getCurrentFog() != target; i++) {

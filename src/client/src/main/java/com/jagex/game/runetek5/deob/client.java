@@ -785,6 +785,7 @@ public final class client extends GameShell {
 		CameraZoom.smoothStep();
 		if (FogDistance.smoothStep() != this.lastFogApplied) {
 			this.lastFogApplied = FogDistance.getCurrentFog();
+			FileOnDisk.anInt4431 = FogDistance.scaledTileRadius();
 			if (MonoStereoData.aClass19_16 != null) {
 				MonoStereoData.aClass19_16.refreshFog();
 			}

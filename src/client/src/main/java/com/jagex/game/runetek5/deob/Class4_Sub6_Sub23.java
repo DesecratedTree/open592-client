@@ -41,6 +41,7 @@ import com.jagex.game.runetek5.toolkit.opengl.buffer.GlVboArrayBuffer;
 import com.jagex.game.runetek5.graphics.model.GlModel;
 import com.jagex.game.runetek5.config.loctype.LocTypeList;
 import com.jagex.game.runetek5.cache.node.lru.CacheableNode;
+import com.jagex.game.runetek5.client.camera.FogDistance;
 import com.jagex.game.runetek5.sound.jagtheora.MidiPcmStream;
 import com.jagex.game.runetek5.OpenGlArbElementArrayBuffer;
 import com.jagex.game.runetek5.deob.ReflectingTextureEffect;
@@ -148,7 +149,8 @@ public final class Class4_Sub6_Sub23 extends TextureOperation {
 		Class217.anInt6319 = CacheableNode.anInt5935;
 		GpuFaceNormal.menuOpenWidth = arg0;
 		GlModel.anInt3361 = arg1;
-		FileOnDisk.anInt4431 = arg2;
+		FogDistance.setBaseTileRadius(arg2);
+		FileOnDisk.anInt4431 = FogDistance.scaleDistance(arg2);
 		Static214.aClass164ArrayArrayArray4 = new Class164[4][GpuFaceNormal.menuOpenWidth][GlModel.anInt3361];
 		Class4_Sub6_Sub4.aClass65Array1 = new Class65[4];
 		if (arg3) {
@@ -183,8 +185,9 @@ public final class Class4_Sub6_Sub23 extends TextureOperation {
 		Class105.anIntArrayArrayArray13 = new int[4][GpuFaceNormal.menuOpenWidth + 1][GlModel.anInt3361 + 1];
 		Class4_Sub6_Sub38.aClass16_Sub1Array3 = new Class16_Sub1[5000];
 		Static1.anInt6 = 0;
-		GlVboArrayBuffer.aBooleanArrayArray4 = new boolean[FileOnDisk.anInt4431 + FileOnDisk.anInt4431 + 1][FileOnDisk.anInt4431 + FileOnDisk.anInt4431 + 1];
-		LocTypeList.aBooleanArrayArray6 = new boolean[FileOnDisk.anInt4431 + FileOnDisk.anInt4431 + 2][FileOnDisk.anInt4431 + FileOnDisk.anInt4431 + 2];
+		int maxTileRadius = FogDistance.maxTileRadius(arg2);
+		GlVboArrayBuffer.aBooleanArrayArray4 = new boolean[maxTileRadius + maxTileRadius + 1][maxTileRadius + maxTileRadius + 1];
+		LocTypeList.aBooleanArrayArray6 = new boolean[maxTileRadius + maxTileRadius + 2][maxTileRadius + maxTileRadius + 2];
 		Static433.aClass70_1 = null;
 	}
 }

@@ -5,8 +5,9 @@ package com.jagex.game.runetek5.client.camera;
  *
  * <p>Fog distance is expressed as a percentage of the scene's base view
  * range, where {@code 256} is 100%. The smoothed level scales the scene far
- * plane, so render distance (projection, culling) and the derived fog
- * start/end move together and the fog band keeps its shape.
+ * plane and the camera-centered tile window, so render distance
+ * (projection, culling, tile submission) and the derived fog start/end move
+ * together and the fog band keeps its shape.
  *
  * <p>Scrolling with Alt held adjusts the <em>target</em> in fixed steps; the
  * render loop eases {@code currentFog} toward it once per tick so motion is
@@ -29,6 +30,13 @@ public final class FogDistance {
 	private static int currentFog = FOG_DEFAULT;
 
 	private static int targetFog = FOG_DEFAULT;
+
+	/**
+	 * Base scene tile radius (camera-centered tile window) chosen at scene
+	 * init from the graphics detail level. Set once per scene init, before
+	 * the first frame, via {@link #setBaseTileRadius}.
+	 */
+	private static int baseTileRadius;
 
 	private FogDistance() {
 	}
@@ -103,9 +111,34 @@ public final class FogDistance {
 		return (int) ((long) baseDistance * (long) currentFog / (long) FOG_DEFAULT);
 	}
 
+	/**
+	 * Records the scene tile radius from the detail level. The per-tick
+	 * radius is this base scaled by the smoothed fog level.
+	 */
+	public static void setBaseTileRadius(int radius) {
+		baseTileRadius = radius;
+	}
+
+	/**
+	 * Current scene tile radius: base radius scaled by the smoothed fog
+	 * level, clamped to at least 1 so the scene never collapses.
+	 */
+	public static int scaledTileRadius() {
+		return Math.max(1, scaleDistance(baseTileRadius));
+	}
+
+	/**
+	 * Radius at maximum fog, for one-time allocation of the per-tile
+	 * visibility arrays so they never need resizing as fog moves.
+	 */
+	public static int maxTileRadius(int baseRadius) {
+		return (int) ((long) baseRadius * (long) FOG_MAX / (long) FOG_DEFAULT);
+	}
+
 	public static void reset() {
 		currentFog = FOG_DEFAULT;
 		targetFog = FOG_DEFAULT;
+		baseTileRadius = 0;
 	}
 
 	/** Test hook: sets both ends of the fog level without smoothing. */
