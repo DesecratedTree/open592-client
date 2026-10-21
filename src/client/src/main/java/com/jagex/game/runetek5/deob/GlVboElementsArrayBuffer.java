@@ -171,6 +171,11 @@ public final class GlVboElementsArrayBuffer extends AbstractArbBufferGL implemen
 				Static441.method5568("fps debug disabled");
 				return;
 			}
+			if (arg0.equalsIgnoreCase("displayfps")) {
+				MusicPatch.aBoolean507 = !MusicPatch.aBoolean507;
+				Static441.method5568(MusicPatch.aBoolean507 ? "fps debug enabled" : "fps debug disabled");
+				return;
+			}
 			if (arg0.equals("systemmem")) {
 				try {
 					Static441.method5568("System memory: " + jagmisc.getAvailablePhysicalMemory() / 1048576L + "/" + jagmisc.getTotalPhysicalMemory() / 1048576L + "Mb");
