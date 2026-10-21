@@ -33,7 +33,6 @@ import com.jagex.game.runetek5.deob.Class210;
 import com.jagex.game.runetek5.deob.Class133;
 import com.jagex.game.runetek5.graphics.NativeBillboardFace;
 import com.jagex.game.runetek5.graphics.Toolkit;
-import com.jagex.game.runetek5.graphics.gl.lwjgl.LwjglToolkit;
 import com.jagex.game.runetek5.deob.Class183;
 import com.jagex.game.runetek5.deob.Class3_Sub3;
 import com.jagex.game.runetek5.graphics.sprite.SpriteType;
@@ -232,10 +231,10 @@ public final class LocTypeList {
 	public static final int[][] anIntArrayArray61 = new int[][] { { 0, 2, 4, 6 }, { 6, 0, 2, 4 }, { 6, 0, 2 }, { 2, 6, 0 }, { 0, 2, 6 }, { 6, 0, 2 }, { 5, 6, 0, 1, 2, 4 }, { 7, 2, 4, 4 }, { 2, 4, 4, 7 }, { 6, 6, 4, 0, 2, 2 }, { 0, 2, 2, 6, 6, 4 }, { 0, 2, 2, 4, 6, 6 }, { 0, 2, 4, 6 } };
 @OriginalMember(owner = "client!wf", name = "a", descriptor = "(IZI)V")
 	public static void method5561(@OriginalArg(1) boolean arg0, @OriginalArg(2) int arg1) {
-		if (arg1 == 1 && !LwjglToolkit.isAvailable()) {
-			// No LWJGL runtime for this JVM: use the pure-Java renderer
-			// instead of failing toolkit construction.
-			System.out.println("LWJGL runtime is not available; using the Java software renderer.");
+		if (arg1 == 1 && !Toolkit.openGlNativesAvailable()) {
+			// No libjaclib/libjaggl for this platform (macOS in particular):
+			// use the pure-Java renderer instead of throwing UnsatisfiedLinkError.
+			System.out.println("OpenGL natives (jaclib/jaggl) are not available for this platform; using the Java software renderer.");
 			arg1 = 0;
 		}
 		if (arg1 == 0) {

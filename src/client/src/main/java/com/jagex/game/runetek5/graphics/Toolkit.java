@@ -47,7 +47,7 @@ import com.jagex.game.runetek5.core.io.DummyInputStream;
 import com.jagex.game.runetek5.deob.OpenGl2DTexture;
 import com.jagex.game.runetek5.cache.node.HashTable;
 import com.jagex.game.runetek5.StackFrame;
-import com.jagex.game.runetek5.graphics.gl.lwjgl.LwjglToolkit;
+import com.jagex.game.runetek5.deob.Class27_Sub4;
 import com.jagex.game.runetek5.config.material.texture.operation.TextureOpIrregularBricks;
 import com.jagex.game.runetek5.toolkit.opengl.EffectManagerGL;
 import com.jagex.game.runetek5.deob.Class217;
@@ -450,10 +450,9 @@ public abstract class Toolkit {
 		}
 		@Pc(52) Toolkit local52;
 		if (arg3 == 0) {
-			local52 = StackFrame.method302(arg2, local7, arg0);			} else if (arg3 == 1) {
-			// High detail is the LWJGL renderer. Construction throws when
-			// the runtime is unavailable, so callers fall back to Java.
-			local52 = LwjglToolkit.create(local7, arg2, arg0, arg1, arg4);
+			local52 = StackFrame.method302(arg2, local7, arg0);
+		} else if (arg3 == 1) {
+			local52 = Class27_Sub4.method3941(local7, arg2, arg4, arg1, arg0);
 		} else if (arg3 == 2) {
 			// Standard detail. The original build used the native sw3d software
 			// renderer here, which is not available in this 64-bit port; the
