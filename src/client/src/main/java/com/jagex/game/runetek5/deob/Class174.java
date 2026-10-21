@@ -587,61 +587,6 @@ public abstract class Class174 {
 											if (TextureOpKaleidoscope.aBoolean256 && FloType.aLong119 < Class168.method3962() - 60000L) {
 												Class190.method4216();
 											}
-											Class4_Sub21_Sub2.anInt3873++;
-											if (Class4_Sub21_Sub2.anInt3873 > 500) {
-												Class4_Sub21_Sub2.anInt3873 = 0;
-												local140 = (int) (Math.random() * 8.0D);
-												if ((local140 & 0x1) == 1) {
-													Class3_Sub4.anInt4024 += Static105.anInt2326;
-												}
-												if ((local140 & 0x4) == 4) {
-													Class164.anInt5119 += SpotAnimationType.anInt5006;
-												}
-												if ((local140 & 0x2) == 2) {
-													TextureOpBrightness.anInt5620 += Class4_Sub6_Sub16.anInt3714;
-												}
-											}
-											if (Class3_Sub4.anInt4024 < -50) {
-												Static105.anInt2326 = 2;
-											}
-											if (TextureOpBrightness.anInt5620 < -55) {
-												Class4_Sub6_Sub16.anInt3714 = 2;
-											}
-											if (Class3_Sub4.anInt4024 > 50) {
-												Static105.anInt2326 = -2;
-											}
-											if (TextureOpBrightness.anInt5620 > 55) {
-												Class4_Sub6_Sub16.anInt3714 = -2;
-											}
-											if (Class164.anInt5119 < -40) {
-												SpotAnimationType.anInt5006 = 1;
-											}
-											Isaac.deferredDragOffsetY++;
-											if (Class164.anInt5119 > 40) {
-												SpotAnimationType.anInt5006 = -1;
-											}
-											if (Isaac.deferredDragOffsetY > 500) {
-												Isaac.deferredDragOffsetY = 0;
-												local140 = (int) (Math.random() * 8.0D);
-												if ((local140 & 0x2) == 2) {
-													Class4_Sub17.anInt2374 += Class4_Sub17.anInt2369;
-												}
-												if ((local140 & 0x1) == 1) {
-													PlayerVarDomain.anInt3399 += GlVboElementsArrayBuffer.anInt6628;
-												}
-											}
-											if (PlayerVarDomain.anInt3399 < -60) {
-												GlVboElementsArrayBuffer.anInt6628 = 2;
-											}
-											if (PlayerVarDomain.anInt3399 > 60) {
-												GlVboElementsArrayBuffer.anInt6628 = -2;
-											}
-											if (Class4_Sub17.anInt2374 < -20) {
-												Class4_Sub17.anInt2369 = 1;
-											}
-											if (Class4_Sub17.anInt2374 > 10) {
-												Class4_Sub17.anInt2369 = -1;
-											}
 											Class105.anInt6744++;
 											if (Class105.anInt6744 > 50) {
 												PingWorker.method5476(Static14.aClass215_2);

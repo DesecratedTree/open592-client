@@ -116,12 +116,12 @@ public final class Static167 {
 		AbstractArbBufferGL.aBoolean599 = false;
 		GlShadowMap.anInt6639 = 0;
 		PositionedGfx.method2462();
-		Class164.anInt5119 = (int) (Math.random() * 80.0D) - 40;
-		Static368.aFloat192 = (int) (Math.random() * 160.0D) - 80 & 0x3FFF;
-		Class3_Sub4.anInt4024 = (int) (Math.random() * 100.0D) - 50;
-		PlayerVarDomain.anInt3399 = (int) (Math.random() * 120.0D) - 60;
-		Class4_Sub17.anInt2374 = (int) (Math.random() * 30.0D) - 20;
-		TextureOpBrightness.anInt5620 = (int) (Math.random() * 110.0D) - 55;
+		Class164.anInt5119 = 0;
+		Static368.aFloat192 = 0.0F;
+		Class3_Sub4.anInt4024 = 0;
+		PlayerVarDomain.anInt3399 = 0;
+		Class4_Sub17.anInt2374 = 0;
+		TextureOpBrightness.anInt5620 = 0;
 		PlayerAppearance.method836();
 		for (@Pc(5675) int local5675 = 0; local5675 < 2048; local5675++) {
 			Static267.aClass16_Sub1_Sub5_Sub1Array1[local5675] = null;
