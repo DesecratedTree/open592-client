@@ -17,9 +17,9 @@ public final class FogDistance {
 
 	public static final int FOG_DEFAULT = 256;
 
-	public static final int FOG_MIN = 64;
+	public static final int FOG_MIN = 128;
 
-	public static final int FOG_MAX = 1024;
+	public static final int FOG_MAX = 405;
 
 	/** Fog units added per wheel notch. Positive notches push fog farther out. */
 	public static final int STEP_PER_NOTCH = 16;
@@ -61,6 +61,14 @@ public final class FogDistance {
 
 	public static void setTarget(int fog) {
 		targetFog = clamp(fog);
+	}
+
+	/**
+	 * Restores a persisted level without smoothing, setting both ends so
+	 * the view starts exactly there instead of gliding on launch.
+	 */
+	static void snapTo(int fog) {
+		currentFog = targetFog = clamp(fog);
 	}
 
 	/**

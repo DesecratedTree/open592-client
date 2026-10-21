@@ -269,6 +269,7 @@ import com.jagex.game.runetek5.cache.node.lru.LRUCache;
 import com.jagex.game.runetek5.client.camera.CameraZoom;
 import com.jagex.game.runetek5.client.camera.CameraZoomController;
 import com.jagex.game.runetek5.client.camera.FogDistance;
+import com.jagex.game.runetek5.client.camera.CameraPreferences;
 
 import com.jagex.game.runetek5.client.input.mouse.MiddleMouseCamera;
 import com.jagex.game.runetek5.client.input.mouse.SimpleMouseLog;
@@ -852,6 +853,7 @@ public final class client extends GameShell {
 	@OriginalMember(owner = "client!client", name = "init", descriptor = "()V")
 	@Override
 	public void init() {
+		CameraPreferences.load();
 		Static107.anInt2335 = Integer.parseInt(this.getParameter("worldid"));
 		GlToolkit.aClass219_2 = Class190.method4222(Integer.parseInt(this.getParameter("modewhere")));
 		if (!Class16_Sub4_Sub3.method3034(GlToolkit.aClass219_2) && Class222.aClass219_6 != GlToolkit.aClass219_2) {

@@ -56,6 +56,14 @@ public final class CameraZoom {
 	}
 
 	/**
+	 * Restores a persisted level without smoothing, setting both ends so
+	 * the camera starts exactly there instead of gliding on launch.
+	 */
+	static void snapTo(int zoom) {
+		currentZoom = targetZoom = clamp(zoom);
+	}
+
+	/**
 	 * Moves the target by a wheel delta. Scroll up reports a negative
 	 * rotation and zooms in (shorter distance); scroll down zooms out.
 	 */

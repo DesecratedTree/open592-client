@@ -95,9 +95,11 @@ public final class CameraZoomController {
 	 */
 	public static int routeWheel(int wheelNotches) {
 		if (tickFog(wheelNotches, isAltHeld(), isControlHeld())) {
+			CameraPreferences.save();
 			return 0;
 		}
 		if (tick(wheelNotches, isControlHeld(), isShiftHeld())) {
+			CameraPreferences.save();
 			return 0;
 		}
 		return wheelNotches;
