@@ -92,18 +92,18 @@ public final class Class4_Sub6_Sub19 extends TextureOperation {
 @OriginalMember(owner = "client!kp", name = "J", descriptor = "I")
 	public static int anInt3956 = 0;
 @OriginalMember(owner = "client!kp", name = "c", descriptor = "(B)V")
-	public static void method3223() {
+	public static void tickClientInput() {
 		if (Class48_Sub1_Sub1.anInt4882 < 102) {
 			Class48_Sub1_Sub1.anInt4882 += 6;
 		}
-		if (PointLight.anInt3862 != 0) {
-			Static167.anInt3231 -= PointLight.anInt3862 * 5;
-			if (OpenGlArbElementArrayBuffer.anInt1881 <= Static167.anInt3231) {
-				Static167.anInt3231 = OpenGlArbElementArrayBuffer.anInt1881 - 1;
+		if (PointLight.pendingWheelDelta != 0) {
+			Static167.chatScrollOffset -= PointLight.pendingWheelDelta * 5;
+			if (OpenGlArbElementArrayBuffer.anInt1881 <= Static167.chatScrollOffset) {
+				Static167.chatScrollOffset = OpenGlArbElementArrayBuffer.anInt1881 - 1;
 			}
-			PointLight.anInt3862 = 0;
-			if (Static167.anInt3231 < 0) {
-				Static167.anInt3231 = 0;
+			PointLight.pendingWheelDelta = 0;
+			if (Static167.chatScrollOffset < 0) {
+				Static167.chatScrollOffset = 0;
 			}
 		}
 		for (@Pc(44) int local44 = 0; local44 < Class4_Sub6_Sub15.anInt3602; local44++) {
@@ -111,7 +111,7 @@ public final class Class4_Sub6_Sub19 extends TextureOperation {
 			@Pc(58) char local58 = Class16_Sub2.aClass30Array4[local44].method749();
 			if (local52 == 84) {
 				JavaThreadResource.method997();
-			} else if (Static384.aClass244_1.method5489(82) && local52 == 66) {
+			} else if (Static384.aClass244_1.isControlHeld() && local52 == 66) {
 				if (Class4_Sub6_Sub31.aClipboard1 != null) {
 					@Pc(73) String local73 = "";
 					for (@Pc(78) int local78 = Static102.aStringArray8.length - 1; local78 >= 0; local78--) {
@@ -121,7 +121,7 @@ public final class Class4_Sub6_Sub19 extends TextureOperation {
 					}
 					Class4_Sub6_Sub31.aClipboard1.setContents(new StringSelection(local73), null);
 				}
-			} else if (Static384.aClass244_1.method5489(82) && local52 == 67) {
+			} else if (Static384.aClass244_1.isControlHeld() && local52 == 67) {
 				if (Class4_Sub6_Sub31.aClipboard1 != null) {
 					@Pc(343) Transferable local343 = Class4_Sub6_Sub31.aClipboard1.getContents(null);
 					if (local343 != null) {
@@ -171,4 +171,5 @@ public final class Class4_Sub6_Sub19 extends TextureOperation {
 		Class4_Sub6_Sub15.anInt3602 = 0;
 		ModeWhere.method4940();
 	}
+
 }

@@ -18,13 +18,13 @@ import com.jagex.game.runetek5.deob.Class4_Sub18;
 public abstract class Class14 {
 
 	@OriginalMember(owner = "client!hh", name = "a", descriptor = "(BLjava/awt/Component;)V")
-	public abstract void method209(@OriginalArg(1) Component arg0);
+	public abstract void attachTo(@OriginalArg(1) Component canvas);
 
 	@OriginalMember(owner = "client!hh", name = "b", descriptor = "(B)I")
-	public abstract int method212();
+	public abstract int consumeWheelRotation();
 
 	@OriginalMember(owner = "client!hh", name = "a", descriptor = "(Ljava/awt/Component;I)V")
-	public abstract void method213(@OriginalArg(0) Component arg0);
+	public abstract void detachFrom(@OriginalArg(0) Component canvas);
 
 @OriginalMember(owner = "client!hh", name = "c", descriptor = "I")
 	public static int anInt266;

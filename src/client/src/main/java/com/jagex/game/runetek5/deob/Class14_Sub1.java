@@ -13,31 +13,31 @@ import org.openrs2.deob.annotation.Pc;
 public final class Class14_Sub1 extends Class14 implements MouseWheelListener {
 
 	@OriginalMember(owner = "client!as", name = "j", descriptor = "I")
-	private int anInt269 = 0;
+	private int accumulatedWheelNotches = 0;
 
 	@OriginalMember(owner = "client!as", name = "b", descriptor = "(B)I")
 	@Override
-	public synchronized int method212() {
-		@Pc(2) int local2 = this.anInt269;
-		this.anInt269 = 0;
-		return local2;
+	public synchronized int consumeWheelRotation() {
+		@Pc(2) int pendingNotches = this.accumulatedWheelNotches;
+		this.accumulatedWheelNotches = 0;
+		return pendingNotches;
 	}
 
 	@OriginalMember(owner = "client!as", name = "mouseWheelMoved", descriptor = "(Ljava/awt/event/MouseWheelEvent;)V")
 	@Override
-	public synchronized void mouseWheelMoved(@OriginalArg(0) MouseWheelEvent arg0) {
-		this.anInt269 += arg0.getWheelRotation();
+	public synchronized void mouseWheelMoved(@OriginalArg(0) MouseWheelEvent wheelEvent) {
+		this.accumulatedWheelNotches += wheelEvent.getWheelRotation();
 	}
 
 	@OriginalMember(owner = "client!as", name = "a", descriptor = "(BLjava/awt/Component;)V")
 	@Override
-	public void method209(@OriginalArg(1) Component arg0) {
-		arg0.addMouseWheelListener(this);
+	public void attachTo(@OriginalArg(1) Component canvas) {
+		canvas.addMouseWheelListener(this);
 	}
 
 	@OriginalMember(owner = "client!as", name = "a", descriptor = "(Ljava/awt/Component;I)V")
 	@Override
-	public void method213(@OriginalArg(0) Component arg0) {
-		arg0.removeMouseWheelListener(this);
+	public void detachFrom(@OriginalArg(0) Component canvas) {
+		canvas.removeMouseWheelListener(this);
 	}
 }

@@ -36,6 +36,11 @@ sourceSets {
             ]
         }
     }
+    test {
+        java {
+            srcDirs = ['src/client/src/test/java']
+        }
+    }
 }
 
 // Java 8 target: the loader uses java.util.jar.Pack200, which only exists
@@ -58,6 +63,12 @@ dependencies {
     // (same jar the matcher runs use as shared classpath).
     implementation files('src/lib/stub.jar')
     clientImplementation files('src/lib/stub.jar')
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
 }
 
 // Shared launch setup for the client run profile: the isolated client

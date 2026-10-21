@@ -124,17 +124,17 @@ public final class Class4_Sub6_Sub16 extends TextureOperation {
 @OriginalMember(owner = "client!jr", name = "M", descriptor = "I")
 	public static int anInt3714 = 2;
 @OriginalMember(owner = "client!jr", name = "a", descriptor = "(IIIIIIII)V")
-	public static void method3072(@OriginalArg(1) int arg0, @OriginalArg(2) int arg1, @OriginalArg(3) int arg2, @OriginalArg(4) int arg3, @OriginalArg(5) int arg4, @OriginalArg(6) int arg5, @OriginalArg(7) int arg6) {
-		@Pc(7) int local7 = arg5 - 334;
+	public static void setCameraPosition(@OriginalArg(1) int focusX, @OriginalArg(2) int distance, @OriginalArg(3) int focusY, @OriginalArg(4) int yaw, @OriginalArg(5) int focusZ, @OriginalArg(6) int buildTrigger, @OriginalArg(7) int pitch) {
+		@Pc(7) int local7 = buildTrigger - 334;
 		if (local7 < 0) {
 			local7 = 0;
 		} else if (local7 > 100) {
 			local7 = 100;
 		}
 		@Pc(33) int local33 = (BzipDecompressor.aShort13 - Static14.aShort1) * local7 / 100 + Static14.aShort1;
-		@Pc(39) int local39 = local33 * arg1 >> 8;
-		@Pc(46) int local46 = 16384 - arg6 & 0x3FFF;
-		@Pc(53) int local53 = 16384 - arg3 & 0x3FFF;
+		@Pc(39) int local39 = local33 * distance >> 8;
+		@Pc(46) int local46 = 16384 - pitch & 0x3FFF;
+		@Pc(53) int local53 = 16384 - yaw & 0x3FFF;
 		@Pc(55) int local55 = 0;
 		@Pc(57) int local57 = 0;
 		@Pc(59) int local59 = local39;
@@ -146,13 +146,14 @@ public final class Class4_Sub6_Sub16 extends TextureOperation {
 			local55 = local59 * Class50_Sub1.anIntArray225[local53] >> 15;
 			local59 = Class50_Sub1.anIntArray224[local53] * local59 >> 15;
 		}
-		QuickChatPhrase.anInt7074 = arg6;
-		Class4_Sub23.anInt3197 = arg0 - local55;
+		QuickChatPhrase.anInt7074 = pitch;
+		Class4_Sub23.anInt3197 = focusX - local55;
 		Class70_Sub1.anInt2070 = 0;
-		Static145.anInt2906 = arg2 - local59;
-		FontMetrics.anInt2790 = arg3;
-		TextureOpIrregularBricks.anInt2024 = arg4 - local57;
+		Static145.anInt2906 = focusY - local59;
+		FontMetrics.anInt2790 = yaw;
+		TextureOpIrregularBricks.anInt2024 = focusZ - local57;
 	}
+
 @OriginalMember(owner = "client!jr", name = "a", descriptor = "(BLclient!ji;)V")
 	public static void method3074(@OriginalArg(1) Huffman arg0) {
 		JavaFallbackSurface.aClass119_1 = arg0;

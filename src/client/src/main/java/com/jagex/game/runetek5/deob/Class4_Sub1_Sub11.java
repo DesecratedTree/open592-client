@@ -13,6 +13,7 @@ import com.jagex.game.runetek5.deob.Class4_Sub23;
 import com.jagex.game.runetek5.QuickChatPhrase;
 import com.jagex.game.runetek5.JavaMatrix;
 import com.jagex.game.runetek5.config.material.texture.operation.TextureOpTiledSprite;
+import com.jagex.game.runetek5.client.camera.CameraZoom;
 import com.jagex.game.runetek5.deob.Class4_Sub6_Sub16;
 import com.jagex.game.runetek5.graphics.font.FontMetrics;
 import com.jagex.game.runetek5.entity.ParticleEmitter;
@@ -213,7 +214,7 @@ public final class Class4_Sub1_Sub11 extends CacheableNode {
 		return Class4_Sub12_Sub1.aClass36_1.method2252();
 	}
 @OriginalMember(owner = "client!hp", name = "a", descriptor = "(IB)V")
-	public static void method2610(@OriginalArg(0) int arg0) {
+	public static void updateCamera(@OriginalArg(0) int buildTrigger) {
 		@Pc(7) int local7 = Shadow.anInt5323 - Class4_Sub5.anInt446;
 		if (local7 >= 100) {
 			Class3_Sub3.anInt2386 = 1;
@@ -227,7 +228,7 @@ public final class Class4_Sub1_Sub11 extends CacheableNode {
 			local16 = ObjStackEntity.anIntArray46[4] + 128;
 		}
 		@Pc(53) int local53 = Class164.anInt5119 + (int) Static368.aFloat192 & 0x3FFF;
-		Class4_Sub6_Sub16.method3072(JavaMatrix.anInt6578, (local16 >> 3) * 3 + 600 << 0, MusicPatch.anInt5636, local53, BufferedSocket.method135(Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6893, Class4_Sub6_Sub25.anInt4963, Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6892) - 50, arg0, local16);
+		Class4_Sub6_Sub16.setCameraPosition(JavaMatrix.anInt6578, CameraZoom.computeDistance(local16), MusicPatch.anInt5636, local53, BufferedSocket.method135(Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6893, Class4_Sub6_Sub25.anInt4963, Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6892) - 50, buildTrigger, local16);
 		@Pc(98) float local98 = 1.0F - (float) ((100 - local7) * (-local7 + 100) * (100 - local7)) / 1000000.0F;
 		Static145.anInt2906 = (int) (local98 * (float) (Static145.anInt2906 - TextureOpTiledSprite.anInt1090) + (float) TextureOpTiledSprite.anInt1090);
 		TextureOpIrregularBricks.anInt2024 = (int) ((float) Static105.anInt2321 + (float) (TextureOpIrregularBricks.anInt2024 - Static105.anInt2321) * local98);

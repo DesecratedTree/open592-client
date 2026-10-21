@@ -67,8 +67,8 @@ public final class Static441 {
 			}
 			Static102.aStringArray8[0] = local14[local20];
 			if (Static102.aStringArray8.length - 1 > OpenGlArbElementArrayBuffer.anInt1881) {
-				if (Static167.anInt3231 > 0) {
-					Static167.anInt3231++;
+				if (Static167.chatScrollOffset > 0) {
+					Static167.chatScrollOffset++;
 				}
 				OpenGlArbElementArrayBuffer.anInt1881++;
 			}

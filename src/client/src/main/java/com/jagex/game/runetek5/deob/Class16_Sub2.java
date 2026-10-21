@@ -105,6 +105,11 @@ public abstract class Class16_Sub2 extends Class16 {
 	public static final int[][] anIntArrayArray37 = new int[][] { { 2, 4, 6, 0 }, { 0, 2, 3, 5, 6, 4 }, { 0, 1, 4, 5 }, { 4, 6, 0, 2 }, { 2, 4, 0 }, { 0, 2, 4 }, { 6, 0, 1, 2, 4, 5 }, { 0, 1, 2, 4, 6, 7 }, { 4, 7, 6, 0 }, { 0, 8, 6, 1, 9, 2, 9, 4 }, { 2, 9, 4, 0, 8, 6 }, { 2, 11, 3, 7, 10, 10, 6, 6 }, { 2, 4, 6, 0 } };
 @OriginalMember(owner = "client!ii", name = "w", descriptor = "F")
 	public static float aFloat142 = 1024.0F;
+	/**
+	 * Camera zoom now lives in {@link com.jagex.game.runetek5.client.camera.CameraZoom}.
+	 * These stubs were unused and are removed so the smoothed zoom state has
+	 * a single owner. See CameraZoom for ZOOM_DEFAULT / ZOOM_MIN / ZOOM_MAX.
+	 */
 @OriginalMember(owner = "client!ii", name = "B", descriptor = "Lclient!bg;")
 	public static final Class22 aClass22_204 = new Class22(57, 15);
 @OriginalMember(owner = "client!ii", name = "C", descriptor = "[I")

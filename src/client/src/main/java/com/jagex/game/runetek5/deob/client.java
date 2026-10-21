@@ -266,6 +266,10 @@ import com.jagex.game.runetek5.deob.Class30;
 import com.jagex.game.runetek5.graphics.model.particle.EmissiveTriangle;
 import com.jagex.game.runetek5.deob.Class16_Sub5;
 import com.jagex.game.runetek5.cache.node.lru.LRUCache;
+import com.jagex.game.runetek5.client.camera.CameraZoom;
+import com.jagex.game.runetek5.client.camera.CameraZoomController;
+import com.jagex.game.runetek5.client.camera.FogDistance;
+
 import com.jagex.game.runetek5.client.input.mouse.MiddleMouseCamera;
 import com.jagex.game.runetek5.client.input.mouse.SimpleMouseLog;
 import com.jagex.game.runetek5.deob.Class10;
@@ -440,7 +444,7 @@ public final class client extends GameShell {
 			QuickchatMessageTypeList.aClass11_5 = null;
 		}
 		if (PlayerEntity.aClass14_1 != null) {
-			PlayerEntity.aClass14_1.method213(Class164.aCanvas5);
+			PlayerEntity.aClass14_1.detachFrom(Class164.aCanvas5);
 		}
 		PlayerEntity.aClass14_1 = null;
 		SpotAnimation.method1241();
@@ -743,6 +747,9 @@ public final class client extends GameShell {
 
 	private final MiddleMouseCamera middleMouseCamera = new MiddleMouseCamera();
 
+	private int lastFogApplied = FogDistance.FOG_DEFAULT;
+
+
 	@OriginalMember(owner = "client!client", name = "m", descriptor = "(I)V")
 	private void method899() {
 		if (VertexDeclarationComponent.anInt6667 == 1000) {
@@ -769,9 +776,20 @@ public final class client extends GameShell {
 		MaterialType.aClass80_1.method2236();
 		this.middleMouseCamera.update(MaterialType.aClass80_1);
 		if (PlayerEntity.aClass14_1 != null) {
-			@Pc(85) int local85 = PlayerEntity.aClass14_1.method212();
-			PointLight.anInt3862 = local85;
+			// Ctrl (without Shift) + wheel zooms; Alt (without Ctrl) + wheel
+			// changes fog distance; Ctrl+Shift+wheel and plain wheel stay on
+			// the legacy scroll path (see CameraZoomController).
+			@Pc(85) int wheelNotches = PlayerEntity.aClass14_1.consumeWheelRotation();
+			PointLight.pendingWheelDelta = CameraZoomController.routeWheel(wheelNotches);
 		}
+		CameraZoom.smoothStep();
+		if (FogDistance.smoothStep() != this.lastFogApplied) {
+			this.lastFogApplied = FogDistance.getCurrentFog();
+			if (MonoStereoData.aClass19_16 != null) {
+				MonoStereoData.aClass19_16.refreshFog();
+			}
+		}
+
 		if (MonoStereoData.aClass19_16 != null) {
 			MonoStereoData.aClass19_16.tick((int) Class168.method3962());
 		}
@@ -802,7 +820,7 @@ public final class client extends GameShell {
 			}
 		}
 		if (LocalRequester.method5440()) {
-			Class4_Sub6_Sub19.method3223();
+			Class4_Sub6_Sub19.tickClientInput();
 		}
 		if (VertexDeclarationComponent.anInt6667 == 0) {
 			this.method910();
@@ -989,7 +1007,7 @@ public final class client extends GameShell {
 		MaterialType.aClass80_1 = Model.method4882(Class164.aCanvas5);
 		PlayerEntity.aClass14_1 = StaticElements.method4424();
 		if (PlayerEntity.aClass14_1 != null) {
-			PlayerEntity.aClass14_1.method209(Class164.aCanvas5);
+			PlayerEntity.aClass14_1.attachTo(Class164.aCanvas5);
 		}
 		Class4_Sub6_Sub7.anInt1932 = SignLink.anInt1987;
 		try {
@@ -1655,11 +1673,11 @@ public final class client extends GameShell {
 							}
 							if (local6.aBoolean612 || local6.anInt6842 != 0) {
 								@Pc(515) HookRequest local515;
-								if (local204 && PointLight.anInt3862 != 0 && local6.anObjectArray24 != null) {
+								if (local204 && PointLight.pendingWheelDelta != 0 && local6.anObjectArray24 != null) {
 									local515 = new HookRequest();
 									local515.hasMousePosition = true;
 									local515.source = local6;
-									local515.anInt5252 = PointLight.anInt3862;
+									local515.anInt5252 = PointLight.pendingWheelDelta;
 									local515.params = local6.anObjectArray24;
 									TextureOpMandelbrot.aClass183_35.method4137(local515);
 								}

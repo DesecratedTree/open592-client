@@ -571,8 +571,8 @@ public abstract class Class174 {
 											if (Static281.aClass247_12 != null) {
 												Static1.method3();
 											}
-											if (GlToolkit.activeChildCount > 0 && Static384.aClass244_1.method5489(82) && Static384.aClass244_1.method5489(81) && PointLight.anInt3862 != 0) {
-												local416 = Static1.aClass16_Sub1_Sub5_Sub1_1.aByte82 - PointLight.anInt3862;
+											if (GlToolkit.activeChildCount > 0 && Static384.aClass244_1.isControlHeld() && Static384.aClass244_1.isKeyHeld(81) && PointLight.pendingWheelDelta != 0) {
+												local416 = Static1.aClass16_Sub1_Sub5_Sub1_1.aByte82 - PointLight.pendingWheelDelta;
 												if (local416 < 0) {
 													local416 = 0;
 												} else if (local416 > 3) {

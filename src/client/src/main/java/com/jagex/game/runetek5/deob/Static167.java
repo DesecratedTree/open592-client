@@ -89,7 +89,7 @@ public final class Static167 {
 	public static final Class22 aClass22_144 = new Class22(92, 2);
 
 	@OriginalMember(owner = "client!il", name = "f", descriptor = "I")
-	public static int anInt3231 = 0;
+	public static int chatScrollOffset = 0;
 
 	@OriginalMember(owner = "client!il", name = "a", descriptor = "(I)V")
 	public static void method2736() {

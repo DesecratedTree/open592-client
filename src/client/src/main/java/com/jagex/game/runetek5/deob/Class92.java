@@ -80,7 +80,7 @@ public final class Class92 {
 		Static384.aClass244_1.method5486();
 		MaterialType.aClass80_1.validate();
 		if (PlayerEntity.aClass14_1 != null) {
-			PlayerEntity.aClass14_1.method213(Class164.aCanvas5);
+			PlayerEntity.aClass14_1.detachFrom(Class164.aCanvas5);
 		}
 		ClientScript.aClient1.method874();
 		Class164.aCanvas5.setBackground(Color.black);
@@ -88,7 +88,7 @@ public final class Class92 {
 		Static384.aClass244_1 = Js5TextureSource.method2398(Class164.aCanvas5);
 		MaterialType.aClass80_1 = Model.method4882(Class164.aCanvas5);
 		if (PlayerEntity.aClass14_1 != null) {
-			PlayerEntity.aClass14_1.method209(Class164.aCanvas5);
+			PlayerEntity.aClass14_1.attachTo(Class164.aCanvas5);
 		}
 	}
 @OriginalMember(owner = "client!hd", name = "a", descriptor = "(BIC)I")

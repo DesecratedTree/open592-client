@@ -181,7 +181,7 @@ public final class GlVboElementsArrayBuffer extends AbstractArbBufferGL implemen
 			}
 			if (arg0.equalsIgnoreCase("cls")) {
 				OpenGlArbElementArrayBuffer.anInt1881 = 0;
-				Static167.anInt3231 = 0;
+				Static167.chatScrollOffset = 0;
 				return;
 			}
 			if (arg0.equalsIgnoreCase("cleartext")) {

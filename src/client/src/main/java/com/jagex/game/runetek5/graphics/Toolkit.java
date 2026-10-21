@@ -222,6 +222,13 @@ public abstract class Toolkit {
 		this.stop();
 	}
 
+	/**
+	 * Re-pushes fog state to the renderer after user fog-distance changes.
+	 * The software path has no fog and inherits this no-op.
+	 */
+	public void refreshFog() {
+	}
+
 	@OriginalMember(owner = "client!ya", name = "a", descriptor = "(IIIIII)Lclient!tb;")
 	public abstract EnvironmentSampler createCubeTexture(@OriginalArg(0) int materialPositiveX, @OriginalArg(1) int materialNegativeX, @OriginalArg(2) int materialPositiveY, @OriginalArg(3) int materialNegativeY, @OriginalArg(4) int materialPositiveZ, @OriginalArg(5) int materialNegativeZ);
 

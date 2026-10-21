@@ -100,6 +100,16 @@ public abstract class Class244 {
 	@OriginalMember(owner = "client!up", name = "a", descriptor = "(II)Z")
 	public abstract boolean method5489(@OriginalArg(1) int arg0);
 
+	/** Clean alias for {@link #method5489(int)}: is a Jagex keycode held? */
+	public boolean isKeyHeld(int jagexKeycode) {
+		return this.method5489(jagexKeycode);
+	}
+
+	/** Clean alias: is either Ctrl state held (Jagex keycode 82)? */
+	public boolean isControlHeld() {
+		return this.isKeyHeld(82);
+	}
+
 @OriginalMember(owner = "client!up", name = "b", descriptor = "Lclient!bg;")
 	public static final Class22 aClass22_325 = new Class22(3, -1);
 @OriginalMember(owner = "client!up", name = "e", descriptor = "Lclient!gk;")

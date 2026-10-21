@@ -29,6 +29,7 @@ import com.jagex.game.runetek5.cache.node.GlMemoryPool;
 import com.jagex.game.runetek5.cache.node.GpuPointLight;
 import com.jagex.game.runetek5.cache.node.MemoryPool;
 import com.jagex.game.runetek5.cache.node.PointLight;
+import com.jagex.game.runetek5.client.camera.FogDistance;
 import com.jagex.game.runetek5.config.material.MaterialType;
 import com.jagex.game.runetek5.config.rsinterface.ComponentSurface;
 import com.jagex.game.runetek5.deob.Class145_Sub1;
@@ -1732,7 +1733,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.aBoolean192 = true;
 		this.effectManager.method5318(false, false, 3);
 		this.effectManager.waterEffect.method5380();
-		this.method1959();
+		this.updateFog();
 		this.method1968();
 	}
 
@@ -1891,7 +1892,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	public void l() {
 		this.aBoolean192 = false;
 		this.effectManager.method5318(false, false, 0);
-		this.method1959();
+		this.updateFog();
 		this.method1968();
 	}
 
@@ -1987,7 +1988,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.aFloat57 = arg1;
 		this.aFloat71 = arg0;
 		if (!this.aBoolean192) {
-			this.method1959();
+			this.updateFog();
 		}
 	}
 
@@ -2168,7 +2169,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.anInt2287 = arg1;
 		this.anInt2293 = arg3;
 		this.effectManager.waterEffect.method5380();
-		this.method1959();
+		this.updateFog();
 	}
 
 	@OriginalMember(owner = "client!fd", name = "d", descriptor = "(I)V")
@@ -2224,7 +2225,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.zNear = near;
 		this.anInt2312 = far;
 		this.method1923();
-		this.method1959();
+		this.updateFog();
 		if (this.anInt2319 == 3) {
 			this.method1933();
 		} else if (this.anInt2319 == 2) {
@@ -2433,7 +2434,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	}
 
 	@OriginalMember(owner = "client!fd", name = "g", descriptor = "(B)V")
-	private void method1959() {
+	private void updateFog() {
 		@Pc(23) int local23;
 		if (this.aBoolean192) {
 			OpenGL.glFogf(2915, 0.0F);
@@ -2442,6 +2443,8 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		} else {
 			this.aFloat76 = (float) (this.anInt2312 - this.anInt2282) - this.aFloat57;
 			this.aFloat59 = this.aFloat76 - (float) this.anInt2315 * this.aFloat71;
+			this.aFloat76 *= FogDistance.getScale();
+			this.aFloat59 *= FogDistance.getScale();
 			if ((float) this.zNear > this.aFloat59) {
 				this.aFloat59 = this.zNear;
 			}
@@ -2455,6 +2458,17 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		OpenGL.glFogfv(2918, Class4_Sub41.aFloatArray30, 0);
 		if (this.aBoolean192) {
 			this.effectManager.waterEffect.method5379();
+		}
+	}
+
+	/**
+	 * Re-pushes fog state after user fog-distance changes. Called from the
+	 * client tick only while the smoothed fog level is moving.
+	 */
+	@Override
+	public void refreshFog() {
+		if (!this.aBoolean192) {
+			this.updateFog();
 		}
 	}
 
@@ -2567,7 +2581,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.anInt2302 = arg0;
 		this.anInt2315 = arg1;
 		if (!this.aBoolean192) {
-			this.method1959();
+			this.updateFog();
 			this.method1968();
 		}
 	}

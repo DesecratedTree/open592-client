@@ -23,6 +23,7 @@ import com.jagex.game.runetek5.deob.s;
 import com.jagex.game.runetek5.*;
 import com.jagex.game.runetek5.js5.Js5MasterIndex;
 import com.jagex.game.runetek5.cache.node.GlMemoryPool;
+import com.jagex.game.runetek5.client.camera.CameraZoom;
 import com.jagex.game.runetek5.deob.Class4_Sub6_Sub35;
 import com.jagex.game.runetek5.deob.Class4_Sub23;
 import com.jagex.game.runetek5.deob.Class4_Sub45;
@@ -281,7 +282,7 @@ public final class Skybox {
 					local127 = ObjStackEntity.anIntArray46[4] + 128;
 				}
 				local164 = (int) Static368.aFloat192 + Class164.anInt5119 & 0x3FFF;
-				Class4_Sub6_Sub16.method3072(JavaMatrix.anInt6578, (local127 >> 3) * 3 + 600 << 0, MusicPatch.anInt5636, local164, BufferedSocket.method135(Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6893, Class4_Sub6_Sub25.anInt4963, Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6892) - 50, local115, local127);
+				Class4_Sub6_Sub16.setCameraPosition(JavaMatrix.anInt6578, CameraZoom.computeDistance(local127), MusicPatch.anInt5636, local164, BufferedSocket.method135(Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6893, Class4_Sub6_Sub25.anInt4963, Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6892) - 50, local115, local127);
 			} else if (Class3_Sub3.anInt2386 == 4) {
 				local127 = (int) Class16_Sub2.aFloat142;
 				if (GlBitBuffer.anInt3012 >> 8 > local127) {
@@ -291,9 +292,9 @@ public final class Skybox {
 					local127 = ObjStackEntity.anIntArray46[4] + 128;
 				}
 				local164 = (int) Static368.aFloat192 & 0x3FFF;
-				Class4_Sub6_Sub16.method3072(JavaMatrix.anInt6578, (local127 >> 3) * 3 + 600 << 0, MusicPatch.anInt5636, local164, BufferedSocket.method135(Js5WorkerThread.anInt7059, Class4_Sub6_Sub25.anInt4963, Class4_Sub45.anInt7360) - 50, local115, local127);
+				Class4_Sub6_Sub16.setCameraPosition(JavaMatrix.anInt6578, CameraZoom.computeDistance(local127), MusicPatch.anInt5636, local164, BufferedSocket.method135(Js5WorkerThread.anInt7059, Class4_Sub6_Sub25.anInt4963, Class4_Sub45.anInt7360) - 50, local115, local127);
 			} else if (Class3_Sub3.anInt2386 == 5) {
-				Class4_Sub1_Sub11.method2610(local115);
+				Class4_Sub1_Sub11.updateCamera(local115);
 			}
 			local127 = Class4_Sub23.anInt3197;
 			local164 = TextureOpIrregularBricks.anInt2024;

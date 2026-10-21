@@ -44,16 +44,16 @@ public final class Static433 {
 			@Pc(55) int local55 = local33 * local45 / (local33 + OpenGlArbElementArrayBuffer.anInt1881 - 1);
 			@Pc(57) int local57 = 4;
 			if (OpenGlArbElementArrayBuffer.anInt1881 > 1) {
-				local57 = (OpenGlArbElementArrayBuffer.anInt1881 - Static167.anInt3231 - 1) * (-local55 + local45) / (OpenGlArbElementArrayBuffer.anInt1881 - 1) + 4;
+				local57 = (OpenGlArbElementArrayBuffer.anInt1881 - Static167.chatScrollOffset - 1) * (-local55 + local45) / (OpenGlArbElementArrayBuffer.anInt1881 - 1) + 4;
 			}
 			arg0.O(GpuPointLight.anInt2881 - 16, local57, 12, local55, Class48_Sub1_Sub1.anInt4882 << 24 | 0x332277, 2);
-			for (@Pc(96) int local96 = Static167.anInt3231; local96 < Static167.anInt3231 + local33 && local96 < OpenGlArbElementArrayBuffer.anInt1881; local96++) {
+			for (@Pc(96) int local96 = Static167.chatScrollOffset; local96 < Static167.chatScrollOffset + local33 && local96 < OpenGlArbElementArrayBuffer.anInt1881; local96++) {
 				@Pc(105) String[] local105 = CursorType.method2058(Static102.aStringArray8[local96], '\b');
 				@Pc(112) int local112 = (GpuPointLight.anInt2881 - 24) / local105.length;
 				for (@Pc(114) int local114 = 0; local114 < local105.length; local114++) {
 					@Pc(122) int local122 = local114 * local112 + 8;
 					arg0.OA(local122, 0, local122 + local112 - 8, 350);
-					Class6.aClass46_9.method5058(-16777216, -1, local105[local114], 350 - (local96 - Static167.anInt3231) * ServerProt.anInt3464 - Static363.anInt6275 - ReflectionCheck.aClass89_1.anInt2778 - 2, local122);
+					Class6.aClass46_9.method5058(-16777216, -1, local105[local114], 350 - (local96 - Static167.chatScrollOffset) * ServerProt.anInt3464 - Static363.anInt6275 - ReflectionCheck.aClass89_1.anInt2778 - 2, local122);
 				}
 			}
 		}

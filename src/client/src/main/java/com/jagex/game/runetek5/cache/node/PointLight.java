@@ -80,5 +80,5 @@ public abstract class PointLight extends Country {
 @OriginalMember(owner = "client!vp", name = "x", descriptor = "Lclient!l;")
 	public static NativeSprite aClass57_17;
 @OriginalMember(owner = "client!vp", name = "t", descriptor = "I")
-	public static int anInt3862 = 0;
+	public static int pendingWheelDelta = 0;
 }
