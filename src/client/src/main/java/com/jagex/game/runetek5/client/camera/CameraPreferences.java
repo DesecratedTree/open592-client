@@ -16,6 +16,11 @@ import java.util.Properties;
  * can never push the camera outside its legal range. All I/O failures are
  * swallowed: a missing or corrupt file simply means stock defaults, and a
  * failed save leaves the running session untouched.
+ *
+ * <p>Levels are written in the current percent-of-stock units and stamped with
+ * {@link #KEY_VERSION}. A file without that stamp predates the switch to
+ * percent levels and is read on the old 256-per-100% scale, then converted, so
+ * a level the player set before the change is not silently reinterpreted.
  */
 public final class CameraPreferences {
 
@@ -27,6 +32,14 @@ public final class CameraPreferences {
 	private static final String KEY_ZOOM = "cameraZoom";
 
 	private static final String KEY_FOG = "fogDistance";
+
+	private static final String KEY_VERSION = "version";
+
+	/** Written into every save; files without it hold pre-percent levels. */
+	private static final int VERSION = 2;
+
+	/** Level that meant 100% before levels became percentages of stock. */
+	private static final int LEGACY_STOCK = 256;
 
 	/** Test hook: redirects the properties file (null restores the default). */
 	private static File directoryOverride;
@@ -41,13 +54,15 @@ public final class CameraPreferences {
 	 */
 	public static void load() {
 		Properties properties = readProperties();
-		CameraZoom.snapTo(parse(properties, KEY_ZOOM, CameraZoom.ZOOM_DEFAULT));
-		FogDistance.snapTo(parse(properties, KEY_FOG, FogDistance.FOG_DEFAULT));
+		boolean legacy = parseVersion(properties) < VERSION;
+		CameraZoom.snapTo(parseLevel(properties, KEY_ZOOM, CameraZoom.ZOOM_DEFAULT, legacy));
+		FogDistance.snapTo(parseLevel(properties, KEY_FOG, FogDistance.FOG_DEFAULT, legacy));
 	}
 
 	/** Persists the current zoom and fog targets. Safe to call every change. */
 	public static void save() {
 		Properties properties = new Properties();
+		properties.setProperty(KEY_VERSION, Integer.toString(VERSION));
 		properties.setProperty(KEY_ZOOM, Integer.toString(CameraZoom.getTargetZoom()));
 		properties.setProperty(KEY_FOG, Integer.toString(FogDistance.getTargetFog()));
 		File file = propertiesFile();
@@ -74,15 +89,39 @@ public final class CameraPreferences {
 		directoryOverride = directory;
 	}
 
-	private static int parse(Properties properties, String key, int fallback) {
+	/**
+	 * Reads one level, converting pre-percent values when the file is legacy.
+	 * A missing key or unparsable value falls back to the current default,
+	 * which is already in percent units and must not be converted.
+	 */
+	private static int parseLevel(Properties properties, String key, int fallback, boolean legacy) {
 		String value = properties.getProperty(key);
 		if (value == null) {
 			return fallback;
 		}
+		int level;
+		try {
+			level = Integer.parseInt(value.trim());
+		} catch (NumberFormatException ex) {
+			return fallback;
+		}
+		return legacy ? legacyToPercent(level) : level;
+	}
+
+	/** Rescales a level recorded on the old 256-per-100% scale. */
+	private static int legacyToPercent(int legacyLevel) {
+		return (int) Math.round((double) legacyLevel * 100.0D / (double) LEGACY_STOCK);
+	}
+
+	private static int parseVersion(Properties properties) {
+		String value = properties.getProperty(KEY_VERSION);
+		if (value == null) {
+			return 1;
+		}
 		try {
 			return Integer.parseInt(value.trim());
 		} catch (NumberFormatException ex) {
-			return fallback;
+			return 1;
 		}
 	}
 

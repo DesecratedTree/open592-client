@@ -21,6 +21,7 @@ import org.openrs2.deob.annotation.Pc;
 
 
 import com.jagex.game.runetek5.deob.GameCanvas;
+import com.jagex.game.runetek5.client.camera.CameraPreferences;
 import com.jagex.game.runetek5.client.cycle.ClientFrameClock;
 import com.jagex.game.runetek5.client.cycle.FramePacer;
 import com.jagex.game.runetek5.client.cycle.FrameRateStats;
@@ -303,6 +304,11 @@ public abstract class GameShell extends Applet implements Runnable, FocusListene
 	private void method876(@OriginalArg(1) boolean arg0) {
 		System.out.println("[shutdown] clean=" + arg0);
 		new Exception("shutdown-path").printStackTrace(System.out);
+		// Camera zoom and fog distance are stored beside the client rather than in
+		// its own settings file, so save them here too: the wheel already saves on
+		// every change, and this covers any level that reached the state without
+		// going through the wheel.
+		CameraPreferences.save();
 		synchronized (this) {
 			if (FramebufferCompositor.aBoolean675) {
 				return;

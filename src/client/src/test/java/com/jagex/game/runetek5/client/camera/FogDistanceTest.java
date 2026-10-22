@@ -20,26 +20,27 @@ class FogDistanceTest {
 
 	@ParameterizedTest(name = "clamp({0}) == {1}")
 	@CsvSource({
-		"0, 128",
-		"-500, 128",
-		"64, 128",
-		"256, 256",
-		"1024, 405",
-		"9999, 405"
+		"0, 100",
+		"-500, 100",
+		"64, 100",
+		"100, 100",
+		"165, 165",
+		"200, 200",
+		"9999, 200"
 	})
 	@DisplayName("clamp pins fog to FOG_MIN..FOG_MAX")
 	void clamp_should_pinToRange_when_outOfBounds(int input, int expected) {
 		assertEquals(expected, FogDistance.clamp(input));
 	}
 
-	@ParameterizedTest(name = "adjustTarget({0}) from 256 -> {1}")
+	@ParameterizedTest(name = "adjustTarget({0}) from 165 -> {1}")
 	@CsvSource({
-		"-1, 240",
-		"1, 272",
-		"-2, 224",
-		"8, 384"
+		"-1, 160",
+		"1, 170",
+		"-2, 155",
+		"8, 200"
 	})
-	@DisplayName("adjustTarget moves target 16 units per notch, scroll-up closes fog in")
+	@DisplayName("adjustTarget moves target 5 points per notch, scroll-up closes fog in")
 	void adjustTarget_should_stepByNotches_when_wheelMoves(int notches, int expectedTarget) {
 		FogDistance.adjustTarget(notches);
 
@@ -47,15 +48,31 @@ class FogDistanceTest {
 		assertEquals(FogDistance.FOG_DEFAULT, FogDistance.getCurrentFog());
 	}
 
+	@ParameterizedTest(name = "setTarget({0}) == {1}")
+	@CsvSource({
+		"166, 165",
+		"163, 165",
+		"183, 185",
+		"202, 200",
+		"97, 100",
+		"190, 190"
+	})
+	@DisplayName("setTarget snaps to the 5-point wheel grid, then clamps")
+	void setTarget_should_snapToStepGrid(int requested, int expected) {
+		FogDistance.setTarget(requested);
+
+		assertEquals(expected, FogDistance.getTargetFog());
+	}
+
 	@Test
 	@DisplayName("adjustTarget clamps at the fog limits")
 	void adjustTarget_should_clamp_when_scrolledPastLimits() {
 		FogDistance.adjustTarget(100);
-		assertEquals(405, FogDistance.getTargetFog());
+		assertEquals(200, FogDistance.getTargetFog());
 
 		FogDistance.reset();
 		FogDistance.adjustTarget(-100);
-		assertEquals(128, FogDistance.getTargetFog());
+		assertEquals(100, FogDistance.getTargetFog());
 	}
 
 	@ParameterizedTest(name = "tickFog({0}, alt={1}, ctrl={2}) consumes={3}")
@@ -90,32 +107,69 @@ class FogDistanceTest {
 	@Test
 	@DisplayName("scaleDistance tracks the smoothed fog level")
 	void scaleDistance_should_scaleBase_atEachLimit() {
+		FogDistance.setForTest(FogDistance.FOG_STOCK, FogDistance.FOG_STOCK);
 		assertEquals(984, FogDistance.scaleDistance(984));
 
-		FogDistance.setForTest(128, 128);
-		assertEquals(492, FogDistance.scaleDistance(984));
+		FogDistance.setForTest(FogDistance.FOG_MIN, FogDistance.FOG_MIN);
+		assertEquals(984, FogDistance.scaleDistance(984));
 
-		FogDistance.setForTest(405, 405);
-		assertEquals(1556, FogDistance.scaleDistance(984));
+		FogDistance.setForTest(FogDistance.FOG_DEFAULT, FogDistance.FOG_DEFAULT);
+		assertEquals(1623, FogDistance.scaleDistance(984));
+
+		FogDistance.setForTest(FogDistance.FOG_MAX, FogDistance.FOG_MAX);
+		assertEquals(1968, FogDistance.scaleDistance(984));
+	}
+
+	@Test
+	@DisplayName("scaleDistance saturates instead of wrapping at every fog notch")
+	void scaleDistance_should_saturate_when_farPlaneWouldOverflow() {
+		for (int fog = FogDistance.FOG_MIN; fog <= FogDistance.FOG_MAX; fog += FogDistance.STEP_PER_NOTCH) {
+			FogDistance.setForTest(fog, fog);
+
+			assertTrue(FogDistance.scaleDistance(Integer.MAX_VALUE) > 0,
+				"no-far-clip far plane must stay positive at fog=" + fog);
+			assertTrue(FogDistance.scaleDistance(984) > 0, "far plane must stay positive at fog=" + fog);
+			assertTrue(FogDistance.scaleDistance(3584) > 0, "scene far plane must stay positive at fog=" + fog);
+
+			// Scaling the no-far-clip value can only grow it, so it pins at the
+			// int limit instead of wrapping negative.
+			if (fog >= FogDistance.FOG_STOCK) {
+				assertEquals(Integer.MAX_VALUE, FogDistance.scaleDistance(Integer.MAX_VALUE),
+					"no-far-clip far plane must saturate at fog=" + fog);
+			}
+		}
+	}
+
+	@Test
+	@DisplayName("scaleDistance keeps stock-fog distances bit-identical")
+	void scaleDistance_should_beIdentity_when_fogIsStock() {
+		FogDistance.setForTest(FogDistance.FOG_STOCK, FogDistance.FOG_STOCK);
+
+		assertEquals(984, FogDistance.scaleDistance(984));
+		assertEquals(3584, FogDistance.scaleDistance(3584));
+		assertEquals(Integer.MAX_VALUE, FogDistance.scaleDistance(Integer.MAX_VALUE));
 	}
 
 	@Test
 	@DisplayName("scaledTileRadius follows the smoothed fog level")
 	void scaledTileRadius_should_scaleBase_atEachLimit() {
 		FogDistance.setBaseTileRadius(32);
-		assertEquals(32, FogDistance.scaledTileRadius());
+		assertEquals(52, FogDistance.scaledTileRadius(), "32 tiles at the 165% default");
 
-		FogDistance.setForTest(128, 128);
-		assertEquals(16, FogDistance.scaledTileRadius());
+		FogDistance.setForTest(FogDistance.FOG_STOCK, FogDistance.FOG_STOCK);
+		assertEquals(32, FogDistance.scaledTileRadius(), "stock distance at 100%");
 
-		FogDistance.setForTest(405, 405);
-		assertEquals(50, FogDistance.scaledTileRadius());
+		FogDistance.setForTest(FogDistance.FOG_MIN, FogDistance.FOG_MIN);
+		assertEquals(32, FogDistance.scaledTileRadius(), "100% is the closest fog comes");
+
+		FogDistance.setForTest(FogDistance.FOG_MAX, FogDistance.FOG_MAX);
+		assertEquals(64, FogDistance.scaledTileRadius());
 	}
 
 	@Test
 	@DisplayName("maxTileRadius covers the widest fog setting")
 	void maxTileRadius_should_fitWidestFog() {
-		assertEquals(50, FogDistance.maxTileRadius(32));
-		assertEquals(44, FogDistance.maxTileRadius(28));
+		assertEquals(64, FogDistance.maxTileRadius(32));
+		assertEquals(56, FogDistance.maxTileRadius(28));
 	}
 }

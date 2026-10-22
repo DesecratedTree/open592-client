@@ -3,27 +3,37 @@ package com.jagex.game.runetek5.client.camera;
 /**
  * OSHD-style fog and render distance state.
  *
- * <p>Fog distance is expressed as a percentage of the scene's base view
- * range, where {@code 256} is 100%. The smoothed level scales the scene far
- * plane and the camera-centered tile window, so render distance
- * (projection, culling, tile submission) and the derived fog start/end move
- * together and the fog band keeps its shape.
+ * <p>Fog distance is a percentage of the scene's stock view range:
+ * {@link #FOG_STOCK} (100%) is exactly what the client shipped with and higher
+ * levels see farther. The smoothed level scales the scene far plane and the
+ * camera-centered tile window, so render distance (projection, culling, tile
+ * submission) and the derived fog start/end move together and the fog band
+ * keeps its shape.
  *
- * <p>Scrolling with Alt held adjusts the <em>target</em> in fixed steps; the
- * presentation layer eases {@code currentFog} toward it once per frame (see
+ * <p>Scrolling with Alt held adjusts the <em>target</em> in
+ * {@link #STEP_PER_NOTCH}-point steps between {@link #FOG_MIN} and
+ * {@link #FOG_MAX}; a fresh install starts at {@link #FOG_DEFAULT}. The
+ * presentation layer eases {@code currentFog} to the target once per frame (see
  * {@link CameraEasing}) so motion is smooth instead of jumping a full notch at
  * a time.
  */
 public final class FogDistance {
 
-	public static final int FOG_DEFAULT = 256;
+	/**
+	 * Fog level that renders the stock view distance. Levels are percentages
+	 * of that distance, so 100 is unmodified and 165 is 65% farther out.
+	 */
+	public static final int FOG_STOCK = 100;
 
-	public static final int FOG_MIN = 128;
+	public static final int FOG_DEFAULT = 165;
 
-	public static final int FOG_MAX = 405;
+	/** Nearest level; the stock view distance is as close as fog comes. */
+	public static final int FOG_MIN = 100;
 
-	/** Fog units added per wheel notch. Positive notches push fog farther out. */
-	public static final int STEP_PER_NOTCH = 16;
+	public static final int FOG_MAX = 200;
+
+	/** Fog percentage points added per wheel notch. Positive notches push fog farther out. */
+	public static final int STEP_PER_NOTCH = 5;
 
 	private static int currentFog = FOG_DEFAULT;
 
@@ -57,8 +67,19 @@ public final class FogDistance {
 		return fog;
 	}
 
+	/**
+	 * Sets the target, snapped to a whole wheel notch. Every notch then lands on
+	 * the same 5-point grid the level starts on, so a persisted or migrated level
+	 * cannot leave the control permanently between two steps.
+	 */
 	public static void setTarget(int fog) {
-		targetFog = clamp(fog);
+		targetFog = clamp(snapToStep(fog));
+	}
+
+	/** Rounds a level to the nearest multiple of {@link #STEP_PER_NOTCH} from stock. */
+	private static int snapToStep(int fog) {
+		int offset = fog - FOG_STOCK;
+		return FOG_STOCK + Math.round((float) offset / (float) STEP_PER_NOTCH) * STEP_PER_NOTCH;
 	}
 
 	/**
@@ -66,7 +87,7 @@ public final class FogDistance {
 	 * the view starts exactly there instead of gliding on launch.
 	 */
 	static void snapTo(int fog) {
-		currentFog = targetFog = clamp(fog);
+		currentFog = targetFog = clamp(snapToStep(fog));
 	}
 
 	/**
@@ -88,9 +109,27 @@ public final class FogDistance {
 	 * Scales a base distance (far plane or fog range) by the smoothed fog
 	 * level. Render distance and fog share this scale so one control moves
 	 * both together.
+	 *
+	 * <p>Saturates instead of wrapping. {@code Integer.MAX_VALUE} is the
+	 * documented "no far clip" value (item icons render with
+	 * {@code ia(50, Integer.MAX_VALUE)}), and at the upper fog levels the
+	 * scaled result does not fit in an {@code int}. Wrapping produced a
+	 * negative far plane, which inverted the depth test and blanked every
+	 * triangle drawn in that projection.
 	 */
 	public static int scaleDistance(int baseDistance) {
-		return (int) ((long) baseDistance * (long) currentFog / (long) FOG_DEFAULT);
+		return saturate((long) baseDistance * (long) currentFog / (long) FOG_STOCK);
+	}
+
+	/** Clamps a scaled distance to the {@code int} range without wrapping. */
+	private static int saturate(long scaledDistance) {
+		if (scaledDistance > (long) Integer.MAX_VALUE) {
+			return Integer.MAX_VALUE;
+		}
+		if (scaledDistance < (long) Integer.MIN_VALUE) {
+			return Integer.MIN_VALUE;
+		}
+		return (int) scaledDistance;
 	}
 
 	/**
@@ -114,7 +153,7 @@ public final class FogDistance {
 	 * visibility arrays so they never need resizing as fog moves.
 	 */
 	public static int maxTileRadius(int baseRadius) {
-		return (int) ((long) baseRadius * (long) FOG_MAX / (long) FOG_DEFAULT);
+		return saturate((long) baseRadius * (long) FOG_MAX / (long) FOG_STOCK);
 	}
 
 	public static void reset() {

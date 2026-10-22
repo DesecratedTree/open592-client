@@ -27,30 +27,32 @@ class CameraFrameUpdateTest {
 	@Test
 	@DisplayName("zoom and fog converge together, without overshoot")
 	void step_shouldConvergeBothLevels() {
-		CameraZoom.setTarget(512);
-		FogDistance.setTarget(405);
+		CameraZoom.setTarget(CameraZoom.ZOOM_MAX);
+		FogDistance.setTarget(FogDistance.FOG_MIN);
 
 		for (int frame = 0; frame < 120; frame++) {
 			CameraFrameUpdate.step(20L);
-			assertTrue(CameraZoom.getCurrentZoom() <= 512, "frame " + frame);
-			assertTrue(FogDistance.getCurrentFog() <= 405, "frame " + frame);
+			assertTrue(CameraZoom.getCurrentZoom() >= CameraZoom.ZOOM_DEFAULT, "frame " + frame);
+			assertTrue(CameraZoom.getCurrentZoom() <= CameraZoom.ZOOM_MAX, "frame " + frame);
+			assertTrue(FogDistance.getCurrentFog() >= FogDistance.FOG_MIN, "frame " + frame);
+			assertTrue(FogDistance.getCurrentFog() <= FogDistance.FOG_DEFAULT, "frame " + frame);
 		}
 
-		assertEquals(512, CameraZoom.getCurrentZoom());
-		assertEquals(405, FogDistance.getCurrentFog());
+		assertEquals(CameraZoom.ZOOM_MAX, CameraZoom.getCurrentZoom());
+		assertEquals(FogDistance.FOG_MIN, FogDistance.getCurrentFog());
 	}
 
 	@Test
 	@DisplayName("a moved fog level is pushed to the renderer as a tile radius")
 	void step_shouldPushMovedFog() {
 		FogDistance.setBaseTileRadius(32);
-		FogDistance.setTarget(405);
+		FogDistance.setTarget(FogDistance.FOG_MAX);
 
 		for (int frame = 0; frame < 120; frame++) {
 			CameraFrameUpdate.step(20L);
 		}
 
-		assertEquals(50, FogDistance.scaledTileRadius());
+		assertEquals(64, FogDistance.scaledTileRadius());
 		assertEquals(FogDistance.scaledTileRadius(), FileOnDisk.anInt4431);
 	}
 
@@ -58,7 +60,7 @@ class CameraFrameUpdateTest {
 	@DisplayName("an unchanged fog level is not re-pushed every frame")
 	void step_shouldNotPush_whenFogDidNotMove() {
 		FogDistance.setBaseTileRadius(32);
-		FogDistance.setTarget(405);
+		FogDistance.setTarget(FogDistance.FOG_MAX);
 		for (int frame = 0; frame < 120; frame++) {
 			CameraFrameUpdate.step(20L);
 		}

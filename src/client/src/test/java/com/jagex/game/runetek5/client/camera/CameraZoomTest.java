@@ -21,28 +21,30 @@ class CameraZoomTest {
 
 	@ParameterizedTest(name = "clamp({0}) == {1}")
 	@CsvSource({
-		"0, 128",
-		"-500, 128",
-		"96, 128",
-		"128, 128",
-		"256, 256",
-		"512, 512",
-		"768, 512",
-		"9999, 512"
+		"0, 100",
+		"-500, 100",
+		"64, 100",
+		"100, 100",
+		"165, 165",
+		"180, 180",
+		"200, 200",
+		"9999, 200"
 	})
 	@DisplayName("clamp pins zoom to ZOOM_MIN..ZOOM_MAX")
 	void clamp_should_pinToRange_when_outOfBounds(int input, int expected) {
 		assertEquals(expected, CameraZoom.clamp(input));
 	}
 
-	@ParameterizedTest(name = "adjustTarget({0}) from 256 -> {1}")
+	@ParameterizedTest(name = "adjustTarget({0}) from 165 -> {1}")
 	@CsvSource({
-		"-1, 232",
-		"1, 280",
-		"-2, 208",
-		"8, 448"
+		"-1, 160",
+		"1, 170",
+		"-2, 155",
+		"6, 195",
+		"7, 200",
+		"8, 200"
 	})
-	@DisplayName("adjustTarget moves target 24 units per notch, scroll-up zooms in")
+	@DisplayName("adjustTarget moves target 5 points per notch, scroll-up zooms in")
 	void adjustTarget_should_stepByNotches_when_wheelMoves(int notches, int expectedTarget) {
 		CameraZoom.adjustTarget(notches);
 
@@ -52,37 +54,64 @@ class CameraZoomTest {
 		);
 	}
 
+	@ParameterizedTest(name = "setTarget({0}) == {1}")
+	@CsvSource({
+		"166, 165",
+		"163, 165",
+		"183, 185",
+		"202, 200",
+		"97, 100",
+		"190, 190"
+	})
+	@DisplayName("setTarget snaps to the 5-point wheel grid, then clamps")
+	void setTarget_should_snapToStepGrid(int requested, int expected) {
+		CameraZoom.setTarget(requested);
+
+		assertEquals(expected, CameraZoom.getTargetZoom());
+	}
+
 	@Test
 	@DisplayName("adjustTarget clamps at the zoom limits")
 	void adjustTarget_should_clamp_when_scrolledPastLimits() {
 		CameraZoom.adjustTarget(100);
-		assertEquals(512, CameraZoom.getTargetZoom());
+		assertEquals(200, CameraZoom.getTargetZoom());
 
 		CameraZoom.reset();
 		CameraZoom.adjustTarget(-100);
-		assertEquals(128, CameraZoom.getTargetZoom());
+		assertEquals(100, CameraZoom.getTargetZoom());
 	}
 
-	@ParameterizedTest(name = "computeDistance({0}) == {1} at default zoom")
+	@ParameterizedTest(name = "computeDistance({0}) == {1} at stock zoom")
 	@CsvSource({
 		"1024, 984",
 		"2048, 1368",
 		"3072, 1752"
 	})
-	@DisplayName("computeDistance derives base distance from pitch at 100% zoom")
-	void computeDistance_should_matchBaseFormula_when_zoomIsDefault(int pitch, int expected) {
+	@DisplayName("computeDistance derives base distance from pitch at 100% (stock) zoom")
+	void computeDistance_should_matchBaseFormula_when_zoomIsStock(int pitch, int expected) {
+		CameraZoom.setForTest(CameraZoom.ZOOM_STOCK, CameraZoom.ZOOM_STOCK);
+
 		assertEquals(expected, CameraZoom.computeDistance(pitch));
 		assertEquals(expected, CameraZoom.scaleDistance(expected));
 	}
 
 	@Test
-	@DisplayName("computeDistance scales with the smoothed zoom level")
-	void computeDistance_should_scaleWithZoom_when_zoomedToLimits() {
-		CameraZoom.setForTest(128, 128);
-		assertEquals(984 * 128 / 256, CameraZoom.computeDistance(1024));
+	@DisplayName("the default zoom pulls the camera 165% of the stock distance back")
+	void computeDistance_should_scaleFromStock_when_zoomIsDefault() {
+		assertEquals(984 * CameraZoom.ZOOM_DEFAULT / 100, CameraZoom.computeDistance(1024));
+	}
 
-		CameraZoom.setForTest(512, 512);
-		assertEquals(984 * 512 / 256, CameraZoom.computeDistance(1024));
+	@Test
+	@DisplayName("computeDistance scales with the smoothed zoom level")
+	void computeDistance_should_scaleWithZoom_atEachLimit() {
+		CameraZoom.setForTest(CameraZoom.ZOOM_MIN, CameraZoom.ZOOM_MIN);
+		assertEquals(984 * 100 / 100, CameraZoom.computeDistance(1024));
+
+		CameraZoom.setForTest(CameraZoom.ZOOM_DEFAULT, CameraZoom.ZOOM_DEFAULT);
+		assertEquals(984 * 165 / 100, CameraZoom.computeDistance(1024));
+
+		CameraZoom.setForTest(CameraZoom.ZOOM_MAX, CameraZoom.ZOOM_MAX);
+		assertEquals(984 * 200 / 100, CameraZoom.computeDistance(1024));
 	}
 
 	@ParameterizedTest(name = "tick({0}, ctrl={1}, shift={2}) consumes={3}")

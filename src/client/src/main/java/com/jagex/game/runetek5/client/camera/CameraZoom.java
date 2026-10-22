@@ -3,26 +3,35 @@ package com.jagex.game.runetek5.client.camera;
 /**
  * OSHD-style camera zoom state.
  *
- * <p>Zoom is expressed as a percentage of the default camera distance, where
- * {@code 256} is 100%. The renderer derives its base distance from the camera
- * pitch ({@code (pitch >> 3) * 3 + 600}) and this class scales it:
- * {@code effectiveDistance = baseDistance * currentZoom / 256}.
+ * <p>Zoom is a percentage of the stock camera distance. The renderer derives
+ * its base distance from the camera pitch ({@code (pitch >> 3) * 3 + 600}) and
+ * this class scales it: {@code effectiveDistance = baseDistance * currentZoom / 100}.
+ * {@link #ZOOM_STOCK} (100%) is therefore exactly the view the client shipped
+ * with, and higher levels pull the camera back.
  *
- * <p>Scrolling adjusts the <em>target</em> in fixed steps; the presentation
- * layer eases {@code currentZoom} toward it once per frame (see
- * {@link CameraEasing}) so motion is smooth instead of jumping a full notch at
- * a time.
+ * <p>The wheel moves the <em>target</em> in {@link #STEP_PER_NOTCH}-point steps
+ * between {@link #ZOOM_MIN} and {@link #ZOOM_MAX}; a fresh install starts at
+ * {@link #ZOOM_DEFAULT}. The presentation layer eases {@code currentZoom} to
+ * the target once per frame (see {@link CameraEasing}) so motion is smooth
+ * instead of jumping a full notch at a time.
  */
 public final class CameraZoom {
 
-	public static final int ZOOM_DEFAULT = 256;
+	/**
+	 * Zoom level that renders the stock camera distance. Levels are percentages
+	 * of that distance, so 100 is unmodified and 165 is 65% farther back.
+	 */
+	public static final int ZOOM_STOCK = 100;
 
-	public static final int ZOOM_MIN = 128;
+	public static final int ZOOM_DEFAULT = 165;
 
-	public static final int ZOOM_MAX = 512;
+	/** Closest level; the stock view is as far in as the camera goes. */
+	public static final int ZOOM_MIN = 100;
 
-	/** Zoom units added per wheel notch. Positive notches zoom out. */
-	public static final int STEP_PER_NOTCH = 24;
+	public static final int ZOOM_MAX = 200;
+
+	/** Zoom percentage points added per wheel notch. Positive notches zoom out. */
+	public static final int STEP_PER_NOTCH = 5;
 
 	private static int currentZoom = ZOOM_DEFAULT;
 
@@ -49,8 +58,19 @@ public final class CameraZoom {
 		return zoom;
 	}
 
+	/**
+	 * Sets the target, snapped to a whole wheel notch. Every notch then lands on
+	 * the same 5-point grid the level starts on, so a persisted or migrated level
+	 * cannot leave the control permanently between two steps.
+	 */
 	public static void setTarget(int zoom) {
-		targetZoom = clamp(zoom);
+		targetZoom = clamp(snapToStep(zoom));
+	}
+
+	/** Rounds a level to the nearest multiple of {@link #STEP_PER_NOTCH} from stock. */
+	private static int snapToStep(int zoom) {
+		int offset = zoom - ZOOM_STOCK;
+		return ZOOM_STOCK + Math.round((float) offset / (float) STEP_PER_NOTCH) * STEP_PER_NOTCH;
 	}
 
 	/**
@@ -58,7 +78,7 @@ public final class CameraZoom {
 	 * the camera starts exactly there instead of gliding on launch.
 	 */
 	static void snapTo(int zoom) {
-		currentZoom = targetZoom = clamp(zoom);
+		currentZoom = targetZoom = clamp(snapToStep(zoom));
 	}
 
 	/**
@@ -77,7 +97,7 @@ public final class CameraZoom {
 
 	/** Scales a pitch-derived base distance by the smoothed zoom level. */
 	public static int scaleDistance(int baseDistance) {
-		return (int) ((long) baseDistance * (long) currentZoom / (long) ZOOM_DEFAULT);
+		return (int) ((long) baseDistance * (long) currentZoom / (long) ZOOM_STOCK);
 	}
 
 	/**

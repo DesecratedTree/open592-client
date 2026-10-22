@@ -25,17 +25,18 @@ class FramePresentationTest {
 	@Test
 	@DisplayName("a frame eases the camera for exactly that frame's delta")
 	void beginFrame_shouldEaseForTheFrameDelta() {
-		CameraZoom.setTarget(448);
+		CameraZoom.setTarget(CameraZoom.ZOOM_MAX);
 
 		this.presentation.beginFrame(20L);
 
-		assertEquals(304, CameraZoom.getCurrentZoom());
+		// One 20 ms tick moves a quarter of the 35-point gap to the 200% max.
+		assertEquals(173, CameraZoom.getCurrentZoom());
 	}
 
 	@Test
 	@DisplayName("a zero-length frame advances nothing")
 	void beginFrame_shouldNotMove_whenDeltaIsNotPositive() {
-		CameraZoom.setTarget(448);
+		CameraZoom.setTarget(CameraZoom.ZOOM_MAX);
 
 		this.presentation.beginFrame(0L);
 		this.presentation.beginFrame(-16L);
