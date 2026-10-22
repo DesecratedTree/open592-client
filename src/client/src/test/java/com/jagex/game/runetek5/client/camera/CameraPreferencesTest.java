@@ -39,7 +39,7 @@ class CameraPreferencesTest {
 	@Test
 	@DisplayName("save then load restores zoom and fog without smoothing sweep")
 	void saveLoad_should_restoreTargets_when_roundTripped() {
-		CameraZoom.setTarget(190);
+		CameraZoom.setTarget(155);
 		FogDistance.setTarget(105);
 		CameraPreferences.save();
 
@@ -47,8 +47,8 @@ class CameraPreferencesTest {
 		FogDistance.reset();
 		CameraPreferences.load();
 
-		assertEquals(190, CameraZoom.getTargetZoom());
-		assertEquals(190, CameraZoom.getCurrentZoom());
+		assertEquals(155, CameraZoom.getTargetZoom());
+		assertEquals(155, CameraZoom.getCurrentZoom());
 		assertEquals(105, FogDistance.getTargetFog());
 		assertEquals(105, FogDistance.getCurrentFog());
 	}
@@ -82,25 +82,25 @@ class CameraPreferencesTest {
 		writeRaw("cameraZoom=512\nfogDistance=256\n");
 		CameraPreferences.load();
 
-		assertEquals(200, CameraZoom.getTargetZoom());
+		assertEquals(CameraZoom.ZOOM_MAX, CameraZoom.getTargetZoom());
 		assertEquals(FogDistance.FOG_STOCK, FogDistance.getTargetFog());
 	}
 
 	@Test
 	@DisplayName("a versioned file is read as-is even when a level looks legacy-sized")
 	void load_should_notConvert_whenFileIsCurrent() throws Exception {
-		writeRaw("version=2\ncameraZoom=165\nfogDistance=200\n");
+		writeRaw("version=2\ncameraZoom=160\nfogDistance=165\n");
 		CameraPreferences.load();
 
-		assertEquals(165, CameraZoom.getTargetZoom());
-		assertEquals(200, FogDistance.getTargetFog());
+		assertEquals(160, CameraZoom.getTargetZoom());
+		assertEquals(165, FogDistance.getTargetFog());
 	}
 
 	@Test
 	@DisplayName("save writes both zoom and fog keys")
 	void save_should_writeBothKeys() throws Exception {
-		CameraZoom.setTarget(185);
-		FogDistance.setTarget(190);
+		CameraZoom.setTarget(155);
+		FogDistance.setTarget(160);
 		CameraPreferences.save();
 
 		Properties properties = new Properties();
@@ -111,8 +111,8 @@ class CameraPreferencesTest {
 			in.close();
 		}
 		assertEquals("2", properties.getProperty("version"));
-		assertEquals("185", properties.getProperty("cameraZoom"));
-		assertEquals("190", properties.getProperty("fogDistance"));
+		assertEquals("155", properties.getProperty("cameraZoom"));
+		assertEquals("160", properties.getProperty("fogDistance"));
 	}
 
 	private void writeRaw(String content) throws Exception {

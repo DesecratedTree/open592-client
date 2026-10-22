@@ -51,7 +51,7 @@ class FrameRateStatsTest {
 			FrameRateStats.record(0, frame * 5L);
 		}
 
-		assertEquals("Fps:0 Tps:0 Zoom:165% Fog:165%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:0 Tps:0 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
 	}
 
 	@Test
@@ -63,7 +63,7 @@ class FrameRateStatsTest {
 			FrameRateStats.record(frame % 4 == 0 ? 1 : 0, start + (frame + 1L) * 5L);
 		}
 
-		assertEquals("Fps:200 Tps:50 Zoom:165% Fog:165%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:200 Tps:50 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
 	}
 
 	@Test
@@ -74,13 +74,13 @@ class FrameRateStatsTest {
 		for (int frame = 0; frame < 60; frame++) {
 			FrameRateStats.record(1, start + (frame + 1L) * 1000L / 60L);
 		}
-		assertEquals("Fps:60 Tps:60 Zoom:165% Fog:165%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:60 Tps:60 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
 
 		for (int frame = 0; frame < 30; frame++) {
 			FrameRateStats.record(1, start + 1000L + (frame + 1L) * 1000L / 30L);
 		}
 
-		assertEquals("Fps:30 Tps:30 Zoom:165% Fog:165%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:30 Tps:30 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
 	}
 
 	@Test
@@ -90,7 +90,7 @@ class FrameRateStatsTest {
 		FrameRateStats.record(10, start);
 		FrameRateStats.record(10, start + 1500L);
 
-		assertEquals("Fps:1 Tps:7 Zoom:165% Fog:165%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:1 Tps:7 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
 	}
 
 	@Test
@@ -116,11 +116,11 @@ class FrameRateStatsTest {
 	@DisplayName("the overlay reports settled zoom and fog as percentages of stock")
 	void getOverlayText_shouldReportSettledLevels() {
 		CameraZoom.setTarget(CameraZoom.ZOOM_MAX);
-		FogDistance.setTarget(190);
+		FogDistance.setTarget(FogDistance.FOG_MAX);
 		settle(CameraZoom::smoothStep, CameraZoom.getCurrentZoom(), CameraZoom.ZOOM_MAX);
-		settle(FogDistance::smoothStep, FogDistance.getCurrentFog(), 190);
+		settle(FogDistance::smoothStep, FogDistance.getCurrentFog(), FogDistance.FOG_MAX);
 
-		assertEquals("Fps:0 Tps:0 Zoom:200% Fog:190%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:0 Tps:0 Zoom:165% Fog:165%", FrameRateStats.getOverlayText());
 	}
 
 	@Test
@@ -131,14 +131,14 @@ class FrameRateStatsTest {
 		for (int frame = 0; frame < 60; frame++) {
 			FrameRateStats.record(1, start + (frame + 1L) * 1000L / 60L);
 		}
-		assertEquals("Fps:60 Tps:60 Zoom:165% Fog:165%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:60 Tps:60 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
 
 		FrameRateStats.requestReset();
 
-		assertEquals("Fps:60 Tps:60 Zoom:165% Fog:165%", FrameRateStats.getOverlayText(),
+		assertEquals("Fps:60 Tps:60 Zoom:140% Fog:140%", FrameRateStats.getOverlayText(),
 			"the window is only cleared by the loop thread");
 		FrameRateStats.record(1, start + 1000L);
-		assertEquals("Fps:0 Tps:0 Zoom:165% Fog:165%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:0 Tps:0 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
 	}
 
 	/**

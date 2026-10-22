@@ -29,8 +29,8 @@ class FramePresentationTest {
 
 		this.presentation.beginFrame(20L);
 
-		// One 20 ms tick moves a quarter of the 35-point gap to the 200% max.
-		assertEquals(173, CameraZoom.getCurrentZoom());
+		// One 20 ms tick moves a quarter of the 25-point gap to the 165% max.
+		assertEquals(146, CameraZoom.getCurrentZoom());
 	}
 
 	@Test

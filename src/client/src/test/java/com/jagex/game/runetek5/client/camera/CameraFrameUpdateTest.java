@@ -52,7 +52,7 @@ class CameraFrameUpdateTest {
 			CameraFrameUpdate.step(20L);
 		}
 
-		assertEquals(64, FogDistance.scaledTileRadius());
+		assertEquals(52, FogDistance.scaledTileRadius());
 		assertEquals(FogDistance.scaledTileRadius(), FileOnDisk.anInt4431);
 	}
 

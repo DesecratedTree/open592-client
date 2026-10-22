@@ -71,8 +71,8 @@ public final class FrameRateStats {
 	 * then the presentation levels that decide how much of the world is drawn.
 	 *
 	 * <p>Zoom and fog are already percentages of the stock view, so they are
-	 * printed as they are: 100% is the distance the client shipped with, 165% is
-	 * the default level and 200% is the maximum. They belong in this readout
+	 * printed as they are: 100% is the distance the client shipped with, 140% is
+	 * the default level and 165% is the maximum. They belong in this readout
 	 * because both scale render distance: when something only misbehaves at
 	 * range, the level that produced it sits next to the frame rate that showed
 	 * it.

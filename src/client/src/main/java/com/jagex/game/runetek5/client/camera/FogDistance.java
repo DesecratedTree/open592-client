@@ -21,16 +21,16 @@ public final class FogDistance {
 
 	/**
 	 * Fog level that renders the stock view distance. Levels are percentages
-	 * of that distance, so 100 is unmodified and 165 is 65% farther out.
+	 * of that distance, so 100 is unmodified and 140 is 40% farther out.
 	 */
 	public static final int FOG_STOCK = 100;
 
-	public static final int FOG_DEFAULT = 165;
+	public static final int FOG_DEFAULT = 140;
 
 	/** Nearest level; the stock view distance is as close as fog comes. */
 	public static final int FOG_MIN = 100;
 
-	public static final int FOG_MAX = 200;
+	public static final int FOG_MAX = 165;
 
 	/** Fog percentage points added per wheel notch. Positive notches push fog farther out. */
 	public static final int STEP_PER_NOTCH = 5;

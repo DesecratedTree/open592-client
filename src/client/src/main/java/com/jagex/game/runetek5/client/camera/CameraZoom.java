@@ -19,16 +19,16 @@ public final class CameraZoom {
 
 	/**
 	 * Zoom level that renders the stock camera distance. Levels are percentages
-	 * of that distance, so 100 is unmodified and 165 is 65% farther back.
+	 * of that distance, so 100 is unmodified and 140 is 40% farther back.
 	 */
 	public static final int ZOOM_STOCK = 100;
 
-	public static final int ZOOM_DEFAULT = 165;
+	public static final int ZOOM_DEFAULT = 140;
 
 	/** Closest level; the stock view is as far in as the camera goes. */
 	public static final int ZOOM_MIN = 100;
 
-	public static final int ZOOM_MAX = 200;
+	public static final int ZOOM_MAX = 165;
 
 	/** Zoom percentage points added per wheel notch. Positive notches zoom out. */
 	public static final int STEP_PER_NOTCH = 5;
