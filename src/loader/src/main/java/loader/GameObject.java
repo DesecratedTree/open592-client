@@ -43,7 +43,7 @@ public final class GameObject {
 			this.aComponent4 = null;
 		}
 		if (arg1 != null) {
-			arg1.setCursor(arg1.getToolkit().createCustomCursor(new BufferedImage(1, 1, 2), new Point(0, 0), null));
+			arg1.setCursor(arg1.getToolkit().createCustomCursor(new BufferedImage(1, 1, BufferedImage.TYPE_INT_ARGB), new Point(0, 0), null));
 			this.aComponent4 = arg1;
 		}
 	}
@@ -53,7 +53,7 @@ public final class GameObject {
 		if (arg0 == null) {
 			arg2.setCursor(null);
 		} else {
-			@Pc(12) BufferedImage local12 = new BufferedImage(arg1, arg3, 2);
+			@Pc(12) BufferedImage local12 = new BufferedImage(arg1, arg3, BufferedImage.TYPE_INT_ARGB);
 			local12.setRGB(0, 0, arg1, arg3, arg0, 0, arg1);
 			arg2.setCursor(arg2.getToolkit().createCustomCursor(local12, arg4, null));
 		}

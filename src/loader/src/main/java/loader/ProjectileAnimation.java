@@ -77,13 +77,18 @@ public final class ProjectileAnimation {
 		try {
 			this.aGraphicsDevice1.setFullScreenWindow(arg0);
 		} finally {
-			if (local1) {
+		if (local1) {
+			try {
+				@Pc(63) Field local63 = Class.forName("sun.awt.Win32GraphicsDevice").getDeclaredField("valid");
+				local63.setAccessible(true);
 				try {
-					@Pc(63) Field local63 = Class.forName("sun.awt.Win32GraphicsDevice").getDeclaredField("valid");
 					local63.set(this.aGraphicsDevice1, Boolean.TRUE);
-				} catch (@Pc(70) Throwable local70) {
+				} finally {
+					local63.setAccessible(false);
 				}
+			} catch (@Pc(70) Throwable local70) {
 			}
+		}
 		}
 	}
 

@@ -9,6 +9,7 @@ import org.openrs2.deob.annotation.Pc;
 
 
 import com.jagex.game.runetek5.Country;
+import com.jagex.game.runetek5.client.cursor.CursorSettings;
 import com.jagex.game.runetek5.QuickChatPhrase;
 import com.jagex.game.runetek5.StackFrame;
 import com.jagex.game.runetek5.cache.node.lru.ClientScript;
@@ -4544,7 +4545,12 @@ public final class Static271 {
 						return;
 					}
 					if (arg0 == 6028) {
-						TextureOpBrightness.aClass50_Sub1_1.aBoolean304 = intStack[--intStackPtr] != 0;
+						boolean customCursors = intStack[--intStackPtr] != 0;
+						TextureOpBrightness.aClass50_Sub1_1.aBoolean304 = customCursors;
+						// The switch itself lives in CursorSettings, so the interface
+						// toggle, the console and the saved file always agree.
+						CursorSettings.setEnabled(customCursors);
+						CursorSettings.save();
 						TextureOpBrightness.aClass50_Sub1_1.method2856(Class126.aClass66_4);
 						return;
 					}
@@ -4697,7 +4703,7 @@ public final class Static271 {
 						return;
 					}
 					if (arg0 == 6128) {
-						intStack[intStackPtr++] = TextureOpBrightness.aClass50_Sub1_1.aBoolean304 ? 1 : 0;
+						intStack[intStackPtr++] = CursorSettings.isEnabled() ? 1 : 0;
 						return;
 					}
 					if (arg0 == 6129) {

@@ -2,10 +2,13 @@ package com.jagex.game.runetek5.sign;
 
 import java.applet.Applet;
 import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.EventQueue;
 import java.awt.Frame;
 import java.awt.Point;
 import java.awt.Toolkit;
+import java.awt.image.BufferedImage;
+import com.jagex.game.runetek5.client.cursor.CustomCursor;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.Transferable;
 import java.io.DataInputStream;
@@ -427,6 +430,25 @@ public final class SignLink implements Runnable {
 						@Pc(152) Transferable local152 = (Transferable) local15.anObject28;
 						@Pc(155) Clipboard local155 = Toolkit.getDefaultToolkit().getSystemClipboard();
 						local155.setContents(local152, null);
+					} else if (local41 == 17) {
+						local107 = (Object[]) local15.anObject28;
+						@Pc(300) Component local300 = (Component) local107[0];
+						@Pc(301) int[] local301 = (int[]) local107[1];
+						@Pc(302) Point local302 = (Point) local107[2];
+						@Pc(303) int local303 = local15.anInt5758;
+						if (CustomCursor.isResetRequest(local303, local301)) {
+							local300.setCursor(null);
+						} else {
+							@Pc(304) int local304 = CustomCursor.heightFor(local303, local301, -1);
+							if (local304 <= 0) {
+								throw new Exception("");
+							}
+							@Pc(305) BufferedImage local305 = CustomCursor.toImage(local303, local301, local304);
+							@Pc(306) Point local306 = CustomCursor.clampHotspot(local302, local303, local304);
+							@Pc(307) Cursor local307 = local300.getToolkit().createCustomCursor(local305, local306, "custom");
+							local300.setCursor(local307);
+						}
+						local15.anObject29 = null;
 					} else {
 						throw new Exception("");
 					}

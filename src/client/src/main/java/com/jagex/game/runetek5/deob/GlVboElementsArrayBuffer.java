@@ -8,6 +8,7 @@ import org.openrs2.deob.annotation.Pc;
 
 
 import com.jagex.game.runetek5.buffer.ElementsBufferGL;
+import com.jagex.game.runetek5.client.cursor.CursorSettings;
 import com.jagex.game.runetek5.graphics.gl.GlToolkit;
 import com.jagex.game.runetek5.toolkit.opengl.buffer.AbstractArbBufferGL;
 
@@ -175,6 +176,24 @@ public final class GlVboElementsArrayBuffer extends AbstractArbBufferGL implemen
 			if (arg0.equalsIgnoreCase("displayfps")) {
 				MusicPatch.aBoolean507 = !MusicPatch.aBoolean507;
 				Static441.method5568(MusicPatch.aBoolean507 ? "fps debug enabled" : "fps debug disabled");
+				return;
+			}
+			if (arg0.equalsIgnoreCase("cursor")) {
+				boolean cursorsEnabled = CursorSettings.toggle();
+				CursorSettings.save();
+				Static441.method5568(cursorsEnabled ? "custom cursors enabled" : "custom cursors disabled");
+				return;
+			}
+			if (arg0.equalsIgnoreCase("cursoron")) {
+				CursorSettings.setEnabled(true);
+				CursorSettings.save();
+				Static441.method5568("custom cursors enabled");
+				return;
+			}
+			if (arg0.equalsIgnoreCase("cursoroff")) {
+				CursorSettings.setEnabled(false);
+				CursorSettings.save();
+				Static441.method5568("custom cursors disabled");
 				return;
 			}
 			if (arg0.equals("systemmem")) {

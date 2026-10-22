@@ -6,12 +6,12 @@ import org.openrs2.deob.annotation.OriginalMember;
 import org.openrs2.deob.annotation.Pc;
 
 
+import com.jagex.game.runetek5.client.cursor.CursorSettings;
 import com.jagex.game.runetek5.config.cursor.CursorType;
 import com.jagex.game.runetek5.graphics.sprite.SpriteType;
 import com.jagex.game.runetek5.cache.node.lru.ClientScript;
 import com.jagex.game.runetek5.deob.Class126;
 import com.jagex.game.runetek5.deob.Class164;
-import com.jagex.game.runetek5.config.material.texture.operation.TextureOpBrightness;
 import com.jagex.game.runetek5.js5.Js5ResourceProvider;
 public final class Static368 {
 
@@ -23,7 +23,10 @@ public final class Static368 {
 
 	@OriginalMember(owner = "client!so", name = "a", descriptor = "(IB)V")
 	public static void method4938(@OriginalArg(0) int arg0) {
-		if (!TextureOpBrightness.aClass50_Sub1_1.aBoolean304) {
+		// The switch is the client's own: the stock gate reads the server's
+		// saved-preferences byte, which leaves a player on a server without the
+		// options toggle with no way to turn the cursors back on.
+		if (!CursorSettings.isEnabled()) {
 			arg0 = -1;
 		}
 		if (arg0 == ClientScript.cameraPitch) {
