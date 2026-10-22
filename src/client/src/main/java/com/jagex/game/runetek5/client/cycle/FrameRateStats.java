@@ -1,5 +1,8 @@
 package com.jagex.game.runetek5.client.cycle;
 
+import com.jagex.game.runetek5.client.camera.CameraZoom;
+import com.jagex.game.runetek5.client.camera.FogDistance;
+
 /**
  * Frames and ticks the loop actually ran, counted over a one-second window and
  * held between windows so the overlay is steady rather than flickering.
@@ -64,11 +67,20 @@ public final class FrameRateStats {
 
 	/**
 	 * The debug overlay line, shared by both display sites so the readout cannot
-	 * drift apart: real rendered frames per second, then real game ticks per
-	 * second beside it.
+	 * drift apart: real rendered frames per second, real game ticks per second,
+	 * then the presentation levels that decide how much of the world is drawn.
+	 *
+	 * <p>Zoom and fog are already percentages of the stock view, so they are
+	 * printed as they are: 100% is the distance the client shipped with, 165% is
+	 * the default level and 200% is the maximum. They belong in this readout
+	 * because both scale render distance: when something only misbehaves at
+	 * range, the level that produced it sits next to the frame rate that showed
+	 * it.
 	 */
 	public static String getOverlayText() {
-		return "Fps:" + fps + " Tps:" + ticksPerSecond;
+		return "Fps:" + fps + " Tps:" + ticksPerSecond
+			+ " Zoom:" + CameraZoom.getCurrentZoom() + "%"
+			+ " Fog:" + FogDistance.getCurrentFog() + "%";
 	}
 
 	/** Rounds a count over an interval to a per-second rate; 0 when either is unusable. */
