@@ -1,7 +1,10 @@
 package com.jagex.game.runetek5.client.cycle;
 
+import com.jagex.game.runetek5.buffer.Packet;
 import com.jagex.game.runetek5.client.camera.CameraZoom;
 import com.jagex.game.runetek5.client.camera.FogDistance;
+import com.jagex.game.runetek5.client.render.RendererInfo;
+import com.jagex.game.runetek5.client.render.RendererLabel;
 
 /**
  * Frames and ticks the loop actually ran, counted over a one-second window and
@@ -76,11 +79,30 @@ public final class FrameRateStats {
 	 * because both scale render distance: when something only misbehaves at
 	 * range, the level that produced it sits next to the frame rate that showed
 	 * it.
+	 *
+	 * <p>The renderer comes last: the GL toolkit and the Java rasteriser produce
+	 * the same scene by very different routes, so which one is running is the
+	 * first thing to check when the frame rate is not what it should be.
 	 */
 	public static String getOverlayText() {
 		return "Fps:" + fps + " Tps:" + ticksPerSecond
 			+ " Zoom:" + CameraZoom.getCurrentZoom() + "%"
-			+ " Fog:" + FogDistance.getCurrentFog() + "%";
+			+ " Fog:" + FogDistance.getCurrentFog() + "%"
+			+ " Renderer:" + RendererLabel.of(Packet.anInt2973);
+	}
+
+	/**
+	 * The second overlay line: the GL version, vendor and renderer strings the
+	 * driver reported, or null when the Java renderer is drawing (there is no GL
+	 * context to ask), so the overlay can skip the line instead of leaving a
+	 * gap.
+	 */
+	public static String getRendererInfoText() {
+		if (!RendererLabel.OPENGL.equals(RendererLabel.of(Packet.anInt2973))) {
+			return null;
+		}
+		String text = RendererInfo.describe();
+		return text.length() == 0 ? null : text;
 	}
 
 	/** Rounds a count over an interval to a per-second rate; 0 when either is unusable. */

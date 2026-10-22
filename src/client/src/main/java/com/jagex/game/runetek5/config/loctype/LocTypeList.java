@@ -6,8 +6,10 @@ import org.openrs2.deob.annotation.OriginalMember;
 import org.openrs2.deob.annotation.Pc;
 
 
+import com.jagex.game.runetek5.JavaToolkit;
 import com.jagex.game.runetek5.LocType;
 import com.jagex.game.runetek5.buffer.Packet;
+import com.jagex.game.runetek5.client.render.RenderCores;
 import com.jagex.game.runetek5.cache.node.lru.LRUCache;
 import com.jagex.game.runetek5.deob.Game;
 import com.jagex.game.runetek5.js5.Js5ResourceProvider;
@@ -275,6 +277,15 @@ public final class LocTypeList {
 		Class70_Sub1.method1813();
 		if (!MonoStereoData.aClass19_16.method4264()) {
 			TextureType.anInt4043 = 1;
+		} else if (MonoStereoData.aClass19_16 instanceof JavaToolkit) {
+			// The software rasteriser is built to split tiles and planes across
+			// the threaded queue in Class62, but stock leaves the worker count
+			// at one, so the CPU renderer always paints on a single thread.
+			// RenderCores raises that to a machine-sized default and honours a
+			// saved or console-picked count. The image is identical either way:
+			// workers only decide who draws a given tile.
+			RenderCores.load();
+			TextureType.anInt4043 = RenderCores.get();
 		}
 		MonoStereoData.aClass19_16.allocateThreads(TextureType.anInt4043);
 		MonoStereoData.aClass19_16.linkThreads(0);

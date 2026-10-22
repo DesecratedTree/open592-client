@@ -274,6 +274,11 @@ public final class PositionedGfx extends CacheableNode {
 								local249 = local95 + 15;
 								if (MusicPatch.aBoolean507) {										Class6.aClass46_9.method5059(FrameRateStats.getOverlayText(), local249, -256, local244);
 									local249 += 15;
+									String rendererInfo = FrameRateStats.getRendererInfoText();
+									if (rendererInfo != null) {
+										Class6.aClass46_9.method5059(rendererInfo, local249, -256, local244);
+										local249 += 15;
+									}
 									@Pc(495) Runtime local495 = Runtime.getRuntime();
 									local505 = (int) ((local495.totalMemory() - local495.freeMemory()) / 1024L);
 									local507 = -256;

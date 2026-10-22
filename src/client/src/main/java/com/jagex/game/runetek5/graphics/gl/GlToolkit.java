@@ -30,6 +30,7 @@ import com.jagex.game.runetek5.cache.node.GpuPointLight;
 import com.jagex.game.runetek5.cache.node.MemoryPool;
 import com.jagex.game.runetek5.cache.node.PointLight;
 import com.jagex.game.runetek5.client.camera.FogDistance;
+import com.jagex.game.runetek5.client.render.RendererInfo;
 import com.jagex.game.runetek5.config.material.MaterialType;
 import com.jagex.game.runetek5.config.rsinterface.ComponentSurface;
 import com.jagex.game.runetek5.deob.Class145_Sub1;
@@ -652,14 +653,10 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.multiSamplesPreference = arg3;
 		try {
 			if (Static179.aBoolean288 == null || !Static179.aBoolean288) {
-				@Pc(254) String local254 = System.getProperty("os.name").toLowerCase();
-				if (!local254.startsWith("mac") && !local254.startsWith("darwin")) {
-					System.loadLibrary("jawt");
-				}
-				// jaclib and jaggl are extracted from JS5 index 30 for the
-				// running platform (Windows/Linux/macOS, 32- or 64-bit).
+				// jaclib is still extracted from JS5 index 30 for the running platform
+				// (Windows/Linux/macOS, 32- or 64-bit); GL itself is LWJGL now, which
+				// ships its own natives and needs no JAWT load of its own.
 				NativeLibraries.load("jaclib");
-				NativeLibraries.load("jaggl");
 				Static179.aBoolean288 = Boolean.TRUE;
 			}
 			if (Static179.aBoolean288 == null || !Static179.aBoolean288) {
@@ -2944,8 +2941,10 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "x", descriptor = "(I)I")
 	private int method1974() {
 		@Pc(5) int local5 = 0;
-		this.aString26 = OpenGL.glGetString(7936).toLowerCase();
-		this.aString27 = OpenGL.glGetString(7937).toLowerCase();
+		String glVendor = OpenGL.glGetString(7936);
+		String glRenderer = OpenGL.glGetString(7937);
+		this.aString26 = glVendor.toLowerCase();
+		this.aString27 = glRenderer.toLowerCase();
 		if (this.aString26.indexOf("microsoft") != -1) {
 			local5 = 1;
 		}
@@ -2953,6 +2952,9 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 			local5 |= 0x1;
 		}
 		@Pc(46) String local46 = OpenGL.glGetString(7938);
+		// The context is current here, so this is where the driver strings the
+		// displayfps overlay shows have to be captured.
+		RendererInfo.record(local46, glVendor, glRenderer);
 		@Pc(54) String[] local54 = CursorType.method2058(local46.replace('.', ' '), ' ');
 		if (local54.length < 2) {
 			local5 |= 0x4;

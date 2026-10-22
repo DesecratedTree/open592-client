@@ -2,14 +2,18 @@ package com.jagex.game.runetek5.client.cycle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.jagex.game.runetek5.buffer.Packet;
 import com.jagex.game.runetek5.client.camera.CameraEasing;
 import com.jagex.game.runetek5.client.camera.CameraZoom;
 import com.jagex.game.runetek5.client.camera.FogDistance;
+import com.jagex.game.runetek5.client.render.RendererInfo;
 
 import java.util.function.IntUnaryOperator;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,6 +23,8 @@ import org.junit.jupiter.params.provider.CsvSource;
 @DisplayName("FrameRateStats debug overlay rates")
 class FrameRateStatsTest {
 
+	private int previousGraphicsMode;
+
 	@BeforeEach
 	void resetStats() {
 		FrameRateStats.reset();
@@ -26,6 +32,16 @@ class FrameRateStatsTest {
 		// deterministic when they start from their defaults.
 		CameraZoom.reset();
 		FogDistance.reset();
+		// The renderer line comes from the resolved graphics mode; pin it at the
+		// GL toolkit so the expected text does not depend on what ran before.
+		this.previousGraphicsMode = Packet.anInt2973;
+		Packet.anInt2973 = 1;
+		RendererInfo.reset();
+	}
+
+	@AfterEach
+	void restoreGraphicsMode() {
+		Packet.anInt2973 = this.previousGraphicsMode;
 	}
 
 	@ParameterizedTest(name = "perSecond({0} in {1} ms) == {2}")
@@ -51,7 +67,7 @@ class FrameRateStatsTest {
 			FrameRateStats.record(0, frame * 5L);
 		}
 
-		assertEquals("Fps:0 Tps:0 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:0 Tps:0 Zoom:140% Fog:140% Renderer:OpenGL", FrameRateStats.getOverlayText());
 	}
 
 	@Test
@@ -63,7 +79,7 @@ class FrameRateStatsTest {
 			FrameRateStats.record(frame % 4 == 0 ? 1 : 0, start + (frame + 1L) * 5L);
 		}
 
-		assertEquals("Fps:200 Tps:50 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:200 Tps:50 Zoom:140% Fog:140% Renderer:OpenGL", FrameRateStats.getOverlayText());
 	}
 
 	@Test
@@ -74,13 +90,13 @@ class FrameRateStatsTest {
 		for (int frame = 0; frame < 60; frame++) {
 			FrameRateStats.record(1, start + (frame + 1L) * 1000L / 60L);
 		}
-		assertEquals("Fps:60 Tps:60 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:60 Tps:60 Zoom:140% Fog:140% Renderer:OpenGL", FrameRateStats.getOverlayText());
 
 		for (int frame = 0; frame < 30; frame++) {
 			FrameRateStats.record(1, start + 1000L + (frame + 1L) * 1000L / 30L);
 		}
 
-		assertEquals("Fps:30 Tps:30 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:30 Tps:30 Zoom:140% Fog:140% Renderer:OpenGL", FrameRateStats.getOverlayText());
 	}
 
 	@Test
@@ -90,7 +106,7 @@ class FrameRateStatsTest {
 		FrameRateStats.record(10, start);
 		FrameRateStats.record(10, start + 1500L);
 
-		assertEquals("Fps:1 Tps:7 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:1 Tps:7 Zoom:140% Fog:140% Renderer:OpenGL", FrameRateStats.getOverlayText());
 	}
 
 	@Test
@@ -104,7 +120,7 @@ class FrameRateStatsTest {
 		int zoomLevel = CameraZoom.getCurrentZoom();
 		int fogLevel = FogDistance.getCurrentFog();
 
-		assertEquals("Fps:0 Tps:0 Zoom:" + zoomLevel + "% Fog:" + fogLevel + "%",
+		assertEquals("Fps:0 Tps:0 Zoom:" + zoomLevel + "% Fog:" + fogLevel + "% Renderer:OpenGL",
 			FrameRateStats.getOverlayText());
 		assertTrue(zoomLevel > CameraZoom.ZOOM_DEFAULT && zoomLevel < CameraZoom.ZOOM_MAX,
 			"one easing step should sit between the default and the target, was " + zoomLevel);
@@ -120,7 +136,37 @@ class FrameRateStatsTest {
 		settle(CameraZoom::smoothStep, CameraZoom.getCurrentZoom(), CameraZoom.ZOOM_MAX);
 		settle(FogDistance::smoothStep, FogDistance.getCurrentFog(), FogDistance.FOG_MAX);
 
-		assertEquals("Fps:0 Tps:0 Zoom:165% Fog:165%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:0 Tps:0 Zoom:165% Fog:165% Renderer:OpenGL", FrameRateStats.getOverlayText());
+	}
+
+	@Test
+	@DisplayName("the overlay names the renderer the client resolved to")
+	void getOverlayText_shouldNameTheActiveRenderer() {
+		assertEquals("Fps:0 Tps:0 Zoom:140% Fog:140% Renderer:OpenGL", FrameRateStats.getOverlayText());
+
+		Packet.anInt2973 = 0;
+
+		assertEquals("Fps:0 Tps:0 Zoom:140% Fog:140% Renderer:Software", FrameRateStats.getOverlayText());
+	}
+
+	@Test
+	@DisplayName("the driver line is only shown while the GL toolkit is drawing")
+	void getRendererInfoText_shouldFollowTheActiveRenderer() {
+		RendererInfo.record("4.6.0 NVIDIA 617.42", "NVIDIA Corporation", "NVIDIA GeForce RTX 4070/PCIe/SSE2");
+
+		assertEquals(
+			"GL:4.6.0 NVIDIA 617.42 | NVIDIA Corporation | NVIDIA GeForce RTX 4070/PCIe/SSE2",
+			FrameRateStats.getRendererInfoText());
+
+		Packet.anInt2973 = 0;
+
+		assertNull(FrameRateStats.getRendererInfoText(), "the Java renderer has no GL strings to show");
+	}
+
+	@Test
+	@DisplayName("the driver line is skipped when nothing has reported yet")
+	void getRendererInfoText_shouldBeNull_beforeTheDriverReports() {
+		assertNull(FrameRateStats.getRendererInfoText());
 	}
 
 	@Test
@@ -131,14 +177,14 @@ class FrameRateStatsTest {
 		for (int frame = 0; frame < 60; frame++) {
 			FrameRateStats.record(1, start + (frame + 1L) * 1000L / 60L);
 		}
-		assertEquals("Fps:60 Tps:60 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:60 Tps:60 Zoom:140% Fog:140% Renderer:OpenGL", FrameRateStats.getOverlayText());
 
 		FrameRateStats.requestReset();
 
-		assertEquals("Fps:60 Tps:60 Zoom:140% Fog:140%", FrameRateStats.getOverlayText(),
+		assertEquals("Fps:60 Tps:60 Zoom:140% Fog:140% Renderer:OpenGL", FrameRateStats.getOverlayText(),
 			"the window is only cleared by the loop thread");
 		FrameRateStats.record(1, start + 1000L);
-		assertEquals("Fps:0 Tps:0 Zoom:140% Fog:140%", FrameRateStats.getOverlayText());
+		assertEquals("Fps:0 Tps:0 Zoom:140% Fog:140% Renderer:OpenGL", FrameRateStats.getOverlayText());
 	}
 
 	/**

@@ -10,6 +10,7 @@ import org.openrs2.deob.annotation.Pc;
 import com.jagex.game.runetek5.buffer.ElementsBufferGL;
 import com.jagex.game.runetek5.client.animation.Tweening;
 import com.jagex.game.runetek5.client.cursor.CursorSettings;
+import com.jagex.game.runetek5.client.render.RenderCores;
 import com.jagex.game.runetek5.graphics.gl.GlToolkit;
 import com.jagex.game.runetek5.toolkit.opengl.buffer.AbstractArbBufferGL;
 
@@ -496,16 +497,12 @@ public final class GlVboElementsArrayBuffer extends AbstractArbBufferGL implemen
 					Static441.method5568("Current toolkit doesn't support multiple cores");
 					return;
 				}
-				local106 = Integer.parseInt(arg0.substring(3));
-				if (local106 < 1) {
-					local106 = 1;
-				} else if (local106 > 4) {
-					local106 = 4;
-				}
-				TextureType.anInt4043 = local106;
-				MonoStereoData.aClass19_16.allocateThreads(TextureType.anInt4043);
+				// Clamping and persistence live in RenderCores so the message, the
+				// queue's worker count and the saved file cannot disagree.
+				local106 = RenderCores.set(Integer.parseInt(arg0.substring(3)));
+				MonoStereoData.aClass19_16.allocateThreads(local106);
 				MonoStereoData.aClass19_16.linkThreads(0);
-				Static441.method5568("Render cores now: " + TextureType.anInt4043);
+				Static441.method5568("Render cores now: " + local106);
 				return;
 			}
 			if (arg0.startsWith("cachespace")) {

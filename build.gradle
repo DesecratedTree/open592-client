@@ -58,17 +58,152 @@ tasks.withType(JavaCompile).configureEach {
     }
 }
 
+// LWJGL 3 supplies the modern OpenGL binding; lwjgl3-awt binds a GL context to
+// an AWT canvas, which is what the client already draws into. One version pair
+// for both source sets so the loader build and the isolated client build can
+// never disagree about what is on the classpath.
+ext {
+    lwjglVersion = '3.4.3'
+    lwjglAwtVersion = '0.2.5'
+}
+
+// Every desktop platform the client can run on. LWJGL ships natives per
+// platform and classifier, and resolves whichever matches at runtime, so all
+// of them travel with the build instead of only the one it was built on.
+def lwjglNativeClassifiers = [
+    'natives-windows',
+    'natives-windows-arm64',
+    'natives-linux',
+    'natives-linux-arm64',
+    'natives-macos',
+    'natives-macos-arm64',
+]
+
+// Modules the renderer needs: core (memory, function pointers, the shared
+// library loader), OpenGL bindings, and the AWT bridge.
+def lwjglModules = ['org.lwjgl:lwjgl', 'org.lwjgl:lwjgl-opengl']
+
 dependencies {
     // Stubs for the Microsoft/Netscape classes the client references
     // (same jar the matcher runs use as shared classpath).
     implementation files('src/lib/stub.jar')
     clientImplementation files('src/lib/stub.jar')
+
+    // The BOM pins every LWJGL module (including anything lwjgl3-awt pulls in)
+    // to one version, so a transitive 3.4.2 cannot sit beside a declared 3.4.3.
+    implementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
+    clientImplementation platform("org.lwjgl:lwjgl-bom:$lwjglVersion")
+    lwjglModules.each { module ->
+        implementation module
+        clientImplementation module
+    }
+    implementation "org.lwjglx:lwjgl3-awt:$lwjglAwtVersion"
+    clientImplementation "org.lwjglx:lwjgl3-awt:$lwjglAwtVersion"
+    lwjglNativeClassifiers.each { classifier ->
+        lwjglModules.each { module ->
+            runtimeOnly "$module:$lwjglVersion:$classifier"
+            clientRuntimeOnly "$module:$lwjglVersion:$classifier"
+        }
+    }
+
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.3'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+// Verifies the LWJGL dependency set rather than trusting it: one version across
+// every module, the modules the renderer binds against, and a native jar for
+// each supported desktop platform. Resolution failures and a stray second
+// version both slip past a successful compile, so they are checked here.
+tasks.register('verifyLwjglDependencies') {
+    group = 'verification'
+    description = 'Checks the LWJGL runtime classpath: single version, expected modules, every platform native.'
+    doLast {
+        def jars = configurations.clientRuntimeClasspath.files.findAll { it.name.endsWith('.jar') }
+        def problems = []
+
+        def expected = ["lwjgl-${lwjglVersion}.jar", "lwjgl-opengl-${lwjglVersion}.jar", "lwjgl3-awt-${lwjglAwtVersion}.jar"]
+        // Modules pulled in by the AWT bridge; both must be present or the
+        // canvas cannot obtain a surface.
+        expected += ["lwjgl-jawt-${lwjglVersion}.jar", "lwjgl-egl-${lwjglVersion}.jar"]
+        expected.each { name ->
+            if (!jars.any { it.name == name }) {
+                problems << "missing $name"
+            }
+        }
+
+        // Natives ship as extra artifacts of the same module, so a missing one
+        // shows up as a missing file, never as a compile error. This list is
+        // written out rather than reusing lwjglNativeClassifiers on purpose: a
+        // platform dropped from the declaration has to fail here, not quietly
+        // shrink what is checked.
+        def requiredNatives = [
+            'natives-windows',
+            'natives-windows-arm64',
+            'natives-linux',
+            'natives-linux-arm64',
+            'natives-macos',
+            'natives-macos-arm64',
+        ]
+        if (requiredNatives.sort() != lwjglNativeClassifiers.sort()) {
+            problems << "declared natives $lwjglNativeClassifiers, expected $requiredNatives"
+        }
+        ["lwjgl", "lwjgl-opengl"].each { module ->
+            requiredNatives.each { classifier ->
+                def name = "$module-${lwjglVersion}-${classifier}.jar"
+                if (!jars.any { it.name == name }) {
+                    problems << "missing $name"
+                }
+            }
+        }
+
+        // A transitive LWJGL at another version is the failure the BOM exists
+        // to prevent, and Gradle would otherwise resolve it silently.
+        jars.findAll { it.name ==~ /lwjgl(-[a-z]+)?-\d+\.\d+\.\d+.*\.jar/ }.each { jar ->
+            def version = (jar.name =~ /-(\d+\.\d+\.\d+)/)[0][1]
+            if (version != lwjglVersion) {
+                problems << "unexpected LWJGL $version in ${jar.name}"
+            }
+        }
+
+        if (!problems.isEmpty()) {
+            throw new GradleException('LWJGL dependency check failed:\n  - ' + problems.join('\n  - '))
+        }
+
+        // The run profile launches the client on a Java 8 toolchain, so the
+        // base bytecode has to load there. LWJGL ships Java 8 classes with a
+        // multi-release module-info on top, which is why only the base class is
+        // inspected; a future LWJGL that really needs 11 fails here instead of
+        // as an UnsupportedClassVersionError at launch.
+        def core = jars.find { it.name == "lwjgl-${lwjglVersion}.jar" }
+        def major = new java.util.zip.ZipFile(core).withCloseable { zip ->
+            def entry = zip.entries().find { it.name.endsWith('Version.class') }
+            def stream = zip.getInputStream(entry)
+            try {
+                def header = new byte[8]
+                new DataInputStream(stream).readFully(header)
+                (header[6] & 0xFF) << 8 | header[7] & 0xFF
+            } finally {
+                stream.close()
+            }
+        }
+        if (major > 52) {
+            throw new GradleException("LWJGL $lwjglVersion base bytecode targets Java ${major - 44}, "
+                    + 'but the client run profile launches on a Java 8 toolchain.')
+        }
+        logger.lifecycle("LWJGL $lwjglVersion + lwjgl3-awt $lwjglAwtVersion verified: "
+                + "${jars.count { it.name.startsWith('lwjgl') }} jars, base bytecode Java ${major - 44}")
+    }
+}
+
+// Keep the dependency check in the normal verification path, so a broken
+// classpath fails `check` rather than only showing up when the renderer is
+// first asked for a GL context.
+tasks.named('check') {
+    dependsOn 'verifyLwjglDependencies'
 }
 
 // Shared launch setup for the client run profile: the isolated client

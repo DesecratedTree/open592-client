@@ -13,6 +13,7 @@ import com.jagex.game.runetek5.cache.node.MemoryPool;
 import com.jagex.game.runetek5.cache.node.PointLight;
 import com.jagex.game.runetek5.cache.node.lru.LRUCache;
 import com.jagex.game.runetek5.client.camera.FogDistance;
+import com.jagex.game.runetek5.client.render.MergedModelCache;
 import com.jagex.game.runetek5.config.material.MaterialType;
 import com.jagex.game.runetek5.config.rsinterface.ComponentSurface;
 import com.jagex.game.runetek5.deob.Class145_Sub2;
@@ -1044,7 +1045,7 @@ public final class JavaToolkit extends com.jagex.game.runetek5.graphics.Toolkit 
 				local3[local5] = (JavaModel) arg0[local5];
 			}
 		}
-		@Pc(26) JavaModel local26 = JavaModel.method4912(this, local3);
+		@Pc(26) JavaModel local26 = MergedModelCache.merged(this, local3);
 		local26.method4900(arg1, arg2 == null ? null : arg2[0], null, arg3);
 	}
 
@@ -1065,6 +1066,9 @@ public final class JavaToolkit extends com.jagex.game.runetek5.graphics.Toolkit 
 	@Override
 	public void B(@OriginalArg(0) float ambient) {
 		this.ambient = (int) (ambient * 65535.0F);
+		// A merged model bakes its face lighting at merge time, so every light
+		// input has to invalidate what the merge cache remembers.
+		JavaModel.lightRevision++;
 	}
 
 	@OriginalMember(owner = "client!bc", name = "q", descriptor = "()Z")
@@ -1414,6 +1418,7 @@ public final class JavaToolkit extends com.jagex.game.runetek5.graphics.Toolkit 
 		this.sunX = (int) (arg3 * 65535.0F / local26);
 		this.sunY = (int) (arg4 * 65535.0F / local26);
 		this.sunZ = (int) (arg5 * 65535.0F / local26);
+		JavaModel.lightRevision++;
 	}
 
 	@OriginalMember(owner = "client!bc", name = "a", descriptor = "(Lclient!bb;Z)Lclient!l;")
@@ -1583,11 +1588,18 @@ public final class JavaToolkit extends com.jagex.game.runetek5.graphics.Toolkit 
 		if (this.canvas == null || this.aClass4_Sub22_1 == null) {
 			throw new IllegalStateException("off");
 		}
+		Graphics graphics = null;
 		try {
-			@Pc(14) Graphics local14 = this.canvas.getGraphics();
-			this.aClass4_Sub22_1.method4608(local14);
+			graphics = this.canvas.getGraphics();
+			this.aClass4_Sub22_1.method4608(graphics);
 		} catch (@Pc(23) Exception local23) {
 			this.canvas.repaint();
+		} finally {
+			// A Graphics from getGraphics() owns a native surface lock: without
+			// this the peer's surfaces accumulate one leaked context per frame.
+			if (graphics != null) {
+				graphics.dispose();
+			}
 		}
 	}
 
@@ -2065,7 +2077,7 @@ public final class JavaToolkit extends com.jagex.game.runetek5.graphics.Toolkit 
 				local3[local5] = (JavaModel) arg0[local5];
 			}
 		}
-		@Pc(26) JavaModel local26 = JavaModel.method4912(this, local3);
+		@Pc(26) JavaModel local26 = MergedModelCache.merged(this, local3);
 		local26.method4900(arg2, arg3 == null ? null : arg3[0], arg1, arg4);
 	}
 }

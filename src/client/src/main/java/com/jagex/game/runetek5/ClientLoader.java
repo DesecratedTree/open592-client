@@ -16,7 +16,7 @@ import com.jagex.game.runetek5.deob.Class99_Sub1;
 public class  ClientLoader extends Applet {
 
     public static String world;
-    public static String serverIp = "127.0.0.1";
+    public static String serverIp = "192.168.12.152";
     public JFrame frame;
     public static final String version = "0.1_a1";
     private final JPanel jp = new JPanel();

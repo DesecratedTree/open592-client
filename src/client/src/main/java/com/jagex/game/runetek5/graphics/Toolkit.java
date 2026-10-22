@@ -427,13 +427,13 @@ public abstract class Toolkit {
 	public static final Class215 aClass215_72 = new Class215(7, 7);
 @OriginalMember(owner = "client!ya", name = "r", descriptor = "Lclient!sl;")
 	public static final Class215 aClass215_73 = new Class215(10, 7);	/**
-	 * Whether the native OpenGL libraries (jaclib and jaggl) for the current
-	 * platform are available. They are extracted on demand from JS5 index 30,
-	 * which carries the Windows, Linux and macOS builds, so every platform can
-	 * use the native renderer instead of only the one the build shipped for.
+	 * Whether the OpenGL renderer can be attempted on this platform. GL runs on
+	 * LWJGL now, whose natives ship with the client for Windows, Linux and macOS,
+	 * so nothing has to be extracted from JS5 for it. A platform without them
+	 * fails in the toolkit's constructor, which falls back to the Java renderer.
 	 */
 	public static boolean openGlNativesAvailable() {
-		return NativeLibraries.isAvailable();
+		return true;
 	}
 
 	@OriginalMember(owner = "client!ya", name = "a", descriptor = "(Lclient!ga;ILjava/awt/Canvas;IBLclient!et;)Lclient!ya;")

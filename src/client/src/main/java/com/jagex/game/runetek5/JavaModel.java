@@ -4646,6 +4646,23 @@ public final class JavaModel extends Model {
 	public static final int anInt6301 = 4096;
 @OriginalMember(owner = "client!sk", name = "sc", descriptor = "I")
 	public static int renderCycle = 0;
+
+	/**
+	 * Bumped whenever the toolkit's light inputs change: ambient, sun direction
+	 * or sun intensities. A merged model bakes per-face lighting from those at
+	 * merge time, so a cache holding one is only valid while this stamp matches
+	 * the value it was built with. New field, no deob counterpart.
+	 */
+	public static int lightRevision = 0;
+
+	/**
+	 * Whether the baked face colours are current for this model's own state.
+	 * Mutators set {@code lightingState} back to 0 or 1 to ask for a relight, so
+	 * a cached merge must not be reused while a part is in either state.
+	 */
+	public boolean lightingCurrent() {
+		return this.lightingState == 2;
+	}
 @OriginalMember(owner = "client!sk", name = "a", descriptor = "(Lclient!bc;[Lclient!sk;)Lclient!sk;")
 	public static JavaModel method4912(@OriginalArg(0) JavaToolkit arg0, @OriginalArg(1) JavaModel[] arg1) {
 		@Pc(1) int local1 = 0;
