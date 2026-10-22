@@ -8,6 +8,7 @@ import org.openrs2.deob.annotation.Pc;
 
 
 import com.jagex.game.runetek5.buffer.ElementsBufferGL;
+import com.jagex.game.runetek5.client.animation.Tweening;
 import com.jagex.game.runetek5.client.cursor.CursorSettings;
 import com.jagex.game.runetek5.graphics.gl.GlToolkit;
 import com.jagex.game.runetek5.toolkit.opengl.buffer.AbstractArbBufferGL;
@@ -458,13 +459,8 @@ public final class GlVboElementsArrayBuffer extends AbstractArbBufferGL implemen
 				return;
 			}
 			if (arg0.equalsIgnoreCase("tween")) {
-				if (OutputStream_Sub1.aBoolean244) {
-					OutputStream_Sub1.aBoolean244 = false;
-					Static441.method5568("Forced tweening disabled.");
-					return;
-				}
-				OutputStream_Sub1.aBoolean244 = true;
-				Static441.method5568("Forced tweening ENABLED!");
+				boolean tweening = Tweening.toggle();
+				Static441.method5568(tweening ? "Forced tweening ENABLED!" : "Forced tweening disabled.");
 				return;
 			}
 			if (arg0.equalsIgnoreCase("shiftclick")) {
