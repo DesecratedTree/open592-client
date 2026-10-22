@@ -460,6 +460,7 @@ public final class GlVboElementsArrayBuffer extends AbstractArbBufferGL implemen
 			}
 			if (arg0.equalsIgnoreCase("tween")) {
 				boolean tweening = Tweening.toggle();
+				Tweening.save();
 				Static441.method5568(tweening ? "Forced tweening ENABLED!" : "Forced tweening disabled.");
 				return;
 			}

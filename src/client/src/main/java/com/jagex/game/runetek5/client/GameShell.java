@@ -22,6 +22,7 @@ import org.openrs2.deob.annotation.Pc;
 
 import com.jagex.game.runetek5.deob.GameCanvas;
 import com.jagex.game.runetek5.client.camera.CameraPreferences;
+import com.jagex.game.runetek5.client.animation.Tweening;
 import com.jagex.game.runetek5.client.cursor.CursorSettings;
 import com.jagex.game.runetek5.client.cycle.ClientFrameClock;
 import com.jagex.game.runetek5.client.cycle.FramePacer;
@@ -311,6 +312,7 @@ public abstract class GameShell extends Applet implements Runnable, FocusListene
 		// going through the wheel.
 		CameraPreferences.save();
 		CursorSettings.save();
+		Tweening.save();
 		synchronized (this) {
 			if (FramebufferCompositor.aBoolean675) {
 				return;
