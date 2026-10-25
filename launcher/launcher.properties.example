@@ -1,0 +1,26 @@
+# open592 launcher - copy to launcher.properties and edit by hand if you like.
+# The GUI rewrites the known keys and keeps your extra lines.
+# Values are literal: write Windows paths as they are, because backslashes and
+# '\u' are not escapes. '#' or '!' starts a comment only at the start of a line.
+#
+# client.jar        absolute, or relative to this file / the launcher folder
+# client.updateUrl  reserved for the downloader (not wired in yet)
+# client.md5        expected MD5; Verify compares the local jar with it
+# java.path         javaw.exe (Windows) or java (macOS/Linux)
+# memory.mb         512, 1024 or 2048
+# hd.preset         ingame, off, low, medium, high or ultra
+# server.host       host or host:port; server.port is separate
+# rsa.modulus       decimal or 0x-prefixed hex, must match the server key
+# rsa.exponent      usually 65537
+
+launcher.version=1
+client.jar=client-current.jar
+client.updateUrl=
+client.md5=
+java.path=
+memory.mb=512
+hd.preset=ingame
+server.host=15.204.91.129
+server.port=43594
+rsa.modulus=150760707550173036278772945946438567090506433713559524284882578712501882671153563393908075995202185676644780813553398041300178964417276453064154818204487233225067371665309152801785075695390556272661160726188792517860341413663154923673919152081958143212280562847593468338985450560012495634444598508070964823741
+rsa.exponent=65537

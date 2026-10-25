@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>open592 launcher</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="frame">
+    <header class="titlebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18">
+            <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <circle cx="12" cy="12" r="3" fill="currentColor" opacity=".55"/>
+            <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" stroke="currentColor" stroke-width="1.4"/>
+          </svg>
+        </span>
+        <span class="brand-name">open592</span>
+        <span class="brand-sub">launcher</span>
+      </div>
+      <div class="titlebar-drag" id="drag-region" title="Drag to move"></div>
+      <div class="window-buttons">
+        <button class="window-button" id="win-min" aria-label="Minimise" title="Minimise">
+          <svg viewBox="0 0 12 12" width="12" height="12"><path d="M2 6.5h8" stroke="currentColor" stroke-width="1.3"/></svg>
+        </button>
+        <button class="window-button close" id="win-close" aria-label="Close" title="Close">
+          <svg viewBox="0 0 12 12" width="12" height="12"><path d="M2.5 2.5l7 7M9.5 2.5l-7 7" stroke="currentColor" stroke-width="1.3"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <nav class="tabbar" role="tablist" aria-label="Launcher pages">
+      <button class="tab is-active" id="tab-news" data-tab="news" role="tab" aria-selected="true">Update Log</button>
+      <button class="tab" id="tab-media" data-tab="media" role="tab" aria-selected="false">Media</button>
+      <span class="tab-rule"></span>
+      <button class="gear" id="open-settings" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+          <path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6zm8.2 4.8l1.6 1.2-1.7 2.9-1.9-.7a7 7 0 0 1-1.8 1l-.3 2h-3.4l-.3-2a7 7 0 0 1-1.8-1l-1.9.7-1.7-2.9L8.9 13a7.4 7.4 0 0 1 0-2L7.2 9.8l1.7-2.9 1.9.7a7 7 0 0 1 1.8-1l.3-2h3.4l.3 2a7 7 0 0 1 1.8 1l1.9-.7 1.7 2.9L20.2 11a7.4 7.4 0 0 1 0 2z" fill="currentColor"/>
+        </svg>
+      </button>
+    </nav>
+
+    <main class="content">
+      <section class="view is-active" id="view-news" role="tabpanel" aria-labelledby="tab-news">
+        <div class="banner">
+          <svg class="banner-art" viewBox="0 0 960 190" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+              <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#17222a"/>
+                <stop offset="0.5" stop-color="#3d4f49"/>
+                <stop offset="1" stop-color="#8b7a58"/>
+              </linearGradient>
+              <linearGradient id="far" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#4d5f4a"/><stop offset="1" stop-color="#32412f"/>
+              </linearGradient>
+              <linearGradient id="mid" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#3d4d38"/><stop offset="1" stop-color="#28331f"/>
+              </linearGradient>
+              <linearGradient id="near" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#2b3524"/><stop offset="1" stop-color="#1a2016"/>
+              </linearGradient>
+              <radialGradient id="glow">
+                <stop offset="0" stop-color="#ffd9a0" stop-opacity=".85"/>
+                <stop offset="1" stop-color="#ffd9a0" stop-opacity="0"/>
+              </radialGradient>
+              <pattern id="hatch" width="9" height="9" patternTransform="rotate(35)" patternUnits="userSpaceOnUse">
+                <line x1="0" y1="0" x2="0" y2="9" stroke="#000000" stroke-opacity=".16" stroke-width="3"/>
+              </pattern>
+              <radialGradient id="vignette" cx=".5" cy=".45" r=".72">
+                <stop offset=".5" stop-color="#000000" stop-opacity="0"/>
+                <stop offset="1" stop-color="#000000" stop-opacity=".58"/>
+              </radialGradient>
+            </defs>
+            <rect width="960" height="190" fill="url(#sky)"/>
+            <circle cx="706" cy="62" r="96" fill="url(#glow)"/>
+            <circle cx="706" cy="62" r="25" fill="#f4dca8" opacity=".6"/>
+            <path d="M0 132 120 92 232 128 342 84 472 130 592 96 722 134 852 100 960 136V190H0Z" fill="url(#far)"/>
+            <path d="M0 154 140 118 282 152 412 112 562 156 702 120 832 154 960 126V190H0Z" fill="url(#mid)"/>
+            <path d="M0 176 150 148 320 176 470 146 640 178 800 150 960 176V190H0Z" fill="url(#near)"/>
+            <g fill="#151b12" opacity=".8">
+              <path d="M92 150l11-26 11 26zM124 152l9-20 9 20zM812 146l10-24 10 24zM846 150l8-18 8 18z"/>
+            </g>
+            <g stroke="#d8b25c" stroke-opacity=".28" stroke-width="1.5" fill="none">
+              <circle cx="856" cy="60" r="34"/>
+              <circle cx="856" cy="60" r="42"/>
+            </g>
+            <rect width="960" height="190" fill="url(#hatch)"/>
+            <rect width="960" height="190" fill="url(#vignette)"/>
+          </svg>
+          <div class="banner-copy">
+            <span class="banner-kicker">open-source &middot; 592 &middot; 592HD</span>
+            <h1 class="banner-title">open592</h1>
+            <p class="banner-note">banner placeholder &mdash; swap this art for a real capture later</p>
+          </div>
+          <span class="banner-badge">1920 &times; 360</span>
+        </div>
+
+        <div class="news-layout">
+          <section class="panel news-panel">
+            <header class="panel-head">
+              <h2>Update Log</h2>
+              <span class="panel-note">sample entries</span>
+            </header>
+            <div class="news-list" id="news-list"></div>
+          </section>
+
+          <aside class="panel discord-panel" aria-label="Discord feed placeholder">
+            <header class="panel-head discord-head">
+              <div>
+                <div class="discord-title">
+                  <h2>#open592</h2>
+                  <span class="chip">placeholder</span>
+                </div>
+                <p class="discord-sub">community feed</p>
+              </div>
+            </header>
+            <div class="discord-list" id="discord-list"></div>
+            <footer class="discord-foot">
+              <span class="discord-count"><span class="dot live"></span><span id="discord-online">12</span> online</span>
+              <span class="discord-mock">not connected</span>
+            </footer>
+            <div class="discord-input" aria-hidden="true">
+              <span>Message #open592</span><span class="send">&#8629;</span>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-media" role="tabpanel" aria-labelledby="tab-media">
+        <header class="media-head">
+          <div>
+            <h2>Media</h2>
+            <p class="panel-note">screenshots and captures from the client</p>
+          </div>
+          <span class="chip">bundled placeholders</span>
+        </header>
+        <div class="media-grid" id="media-grid"></div>
+      </section>
+    </main>
+
+    <footer class="statusbar">
+      <div class="status-left">
+        <span class="status-version" id="status-version">open592 launcher</span>
+        <span class="status-sep">&middot;</span>
+        <span class="status-client" id="status-client">client 592</span>
+      </div>
+      <div class="status-mid"><span class="jar-label" id="jar-label">locating client jar&hellip;</span></div>
+      <div class="status-right">
+        <span class="launch-state" id="launch-state">Ready</span>
+        <button class="play" id="play" disabled><span class="play-label">Play</span></button>
+      </div>
+    </footer>
+
+    <div class="scrim" id="scrim" hidden></div>
+
+    <aside class="settings" id="settings" aria-hidden="true" aria-label="Settings">
+      <header class="settings-head">
+        <div>
+          <h2>Settings</h2>
+          <p class="panel-note">stored in <code id="config-path">launcher.properties</code></p>
+        </div>
+        <button class="icon-button" id="close-settings" aria-label="Close settings" title="Close">&times;</button>
+      </header>
+
+      <div class="settings-body">
+        <div class="save-state" id="save-state" role="status"></div>
+
+        <section class="group">
+          <h3>Client</h3>
+          <label class="field">
+            <span class="field-label">Client jar</span>
+            <span class="field-row">
+              <input id="cfg-jar" type="text" autocomplete="off" spellcheck="false" placeholder="client-current.jar">
+              <button class="btn small" id="browse-jar" type="button">Browse&hellip;</button>
+            </span>
+            <span class="field-hint" id="jar-hint">relative paths resolve from this file's folder</span>
+          </label>
+          <p class="field-error" id="err-jar"></p>
+
+          <div class="md5-row">
+            <span class="field-label">MD5</span>
+            <code id="cfg-md5">&mdash;</code>
+          </div>
+          <div class="verify-row">
+            <button class="btn small" id="verify-md5" type="button">Verify</button>
+            <span class="verify-result" id="verify-result"></span>
+          </div>
+
+          <label class="field">
+            <span class="field-label">Update URL <span class="chip inline">download later</span></span>
+            <input id="cfg-url" type="text" autocomplete="off" spellcheck="false" placeholder="https://example.com/client-current.jar">
+          </label>
+          <label class="field">
+            <span class="field-label">Expected MD5</span>
+            <input id="cfg-expected" type="text" autocomplete="off" spellcheck="false" placeholder="leave empty to only show the hash">
+          </label>
+          <button class="btn wide" id="check-updates" type="button" disabled title="The downloader is not wired in yet">Check for updates</button>
+          <p class="field-hint">This build verifies a local jar; downloading arrives in a later version.</p>
+        </section>
+
+        <section class="group">
+          <h3>Java</h3>
+          <label class="field">
+            <span class="field-label">Runtime</span>
+            <span class="field-row">
+              <input id="cfg-java" type="text" autocomplete="off" spellcheck="false" placeholder="java">
+              <button class="btn small" id="browse-java" type="button">Browse&hellip;</button>
+            </span>
+            <span class="field-hint" id="java-hint">the client needs a Java 8 runtime</span>
+          </label>
+          <p class="field-error" id="err-java"></p>
+          <div class="field">
+            <span class="field-label">Memory</span>
+            <div class="segmented" id="memory-segments" role="group" aria-label="VM memory">
+              <button type="button" data-memory="512">512 MB</button>
+              <button type="button" data-memory="1024">1 GB</button>
+              <button type="button" data-memory="2048">2 GB</button>
+            </div>
+            <span class="field-hint">2 GB needs a 64-bit runtime.</span>
+          </div>
+        </section>
+
+        <section class="group">
+          <h3>592HD</h3>
+          <label class="field">
+            <span class="field-label">Mode</span>
+            <span class="select-wrap">
+              <select id="cfg-preset">
+                <option value="ingame">In-game settings</option>
+                <option value="off">Off</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="ultra">Ultra</option>
+              </select>
+            </span>
+            <span class="field-hint">In-game settings leaves the saved HD choices alone.</span>
+          </label>
+          <p class="field-error" id="err-preset"></p>
+        </section>
+
+        <section class="group">
+          <h3>Server &amp; keys</h3>
+          <label class="field">
+            <span class="field-label">Address</span>
+            <span class="field-row split">
+              <input id="cfg-host" type="text" autocomplete="off" spellcheck="false" placeholder="host">
+              <input id="cfg-port" type="text" class="port" inputmode="numeric" autocomplete="off" placeholder="43594">
+            </span>
+            <span class="field-hint">paste host:port in the address field and it splits for you</span>
+          </label>
+          <p class="field-error" id="err-server"></p>
+
+          <label class="field">
+            <span class="field-label">RSA modulus</span>
+            <textarea id="cfg-modulus" rows="3" autocomplete="off" spellcheck="false" placeholder="decimal, or 0x-prefixed hex"></textarea>
+          </label>
+          <label class="field">
+            <span class="field-label">RSA exponent</span>
+            <input id="cfg-exponent" type="text" class="short" autocomplete="off" spellcheck="false" placeholder="65537">
+          </label>
+          <p class="warning">The key must match your server's login key, or every login is rejected.</p>
+          <button class="btn ghost small" id="reset-keys" type="button">Reset address &amp; keys</button>
+        </section>
+
+        <footer class="group group-foot">
+          <button class="btn ghost" id="reset-all" type="button">Reset all settings</button>
+          <button class="btn ghost" id="open-logs" type="button">Open logs folder</button>
+          <p class="field-hint" id="launcher-version"></p>
+        </footer>
+      </div>
+    </aside>
+
+    <div class="lightbox" id="lightbox" hidden>
+      <figure>
+        <button class="lightbox-close" id="lightbox-close" aria-label="Close">&times;</button>
+        <img id="lightbox-image" alt="">
+        <figcaption id="lightbox-caption"></figcaption>
+      </figure>
+    </div>
+
+    <div class="toast" id="toast" hidden role="status"></div>
+  </div>
+
+  <script src="mock.js"></script>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
