@@ -247,6 +247,21 @@ public abstract class Toolkit {
 	@OriginalMember(owner = "client!ya", name = "s", descriptor = "()Lclient!c;")
 	public abstract Ground method4274();
 
+	/**
+	 * 592HD seam: the client is about to bake the top-down map texture.
+	 *
+	 * <p>The bake draws the scene's ground objects into a small texture from a
+	 * projection of its own, so 592HD's per-pixel lighting - which is expressed
+	 * in the scene camera's space - must not run during it. A no-op on toolkits
+	 * that have no such pipeline; {@code GlToolkit} is the one that does.
+	 */
+	public void hdMapBakeBegin() {
+	}
+
+	/** 592HD seam: the map bake is over. */
+	public void hdMapBakeEnd() {
+	}
+
 	@OriginalMember(owner = "client!ya", name = "ZA", descriptor = "()I")
 	public abstract int ZA();
 

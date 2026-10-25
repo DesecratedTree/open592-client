@@ -118,14 +118,22 @@ public abstract class TextureCombinerOp {
 			}
 		}
 		Class164.aCanvas5.setSize(GpuPointLight.anInt2881, EffectiveVertex.anInt5346);
-		if (MonoStereoData.aClass19_16 != null) {
-			MonoStereoData.aClass19_16.releaseSurface(Class164.aCanvas5);
-		}
 		if (local13 == ModelNormalsGL.aFrame1) {
 			local31 = ModelNormalsGL.aFrame1.getInsets();
 			Class164.aCanvas5.setLocation(FileOnDisk.anInt4424 + local31.left, local31.top - -Class120_Sub1.anInt5363);
 		} else {
 			Class164.aCanvas5.setLocation(FileOnDisk.anInt4424, Class120_Sub1.anInt5363);
+		}
+		// 592HD: the surface is rebuilt *after* the canvas has its new size.
+		// Releasing first (as this did) gave every new surface the old
+		// dimensions: the software toolkit's offscreen image kept the previous
+		// canvas size, so a resized window showed the old frame with an
+		// unpainted strip around it on macOS, and GlToolkit.method1909() read
+		// the old size into its viewport for the whole session. HookRequest's
+		// resize already sizes first and releases second; this is the same
+		// order for the frame-size change path.
+		if (MonoStereoData.aClass19_16 != null) {
+			MonoStereoData.aClass19_16.releaseSurface(Class164.aCanvas5);
 		}
 		if (EnumType.anInt5766 != -1) {
 			SpotAnimationTypeList.method4422(true);

@@ -7,6 +7,10 @@ deobfuscator names (`method1234`, `anInt1234`, `Class4_Sub6_Sub19`, ...).
 ## Build & verify
 
 - Run tests + compile: `./gradlew test :compileClientJava`
+- The real-GL pixel proofs run in that command by default. `jaggl.GlTestContext.open()`
+  is the single gate: a machine that cannot give a context skips them with its
+  reason. There is no property or environment switch for them, so a run either
+  executes every pixel proof or reports why it could not.
 - Tests are JUnit 5 under `src/client/src/test/java/...`, mirroring the main
   package layout. Name test classes `<Thing>Test`.
 - New behavior needs tests that mirror the existing style: clamp tables,
@@ -45,6 +49,21 @@ deobfuscator names (`method1234`, `anInt1234`, `Class4_Sub6_Sub19`, ...).
   function so render code never duplicates the math. The shared easing curve
   (retention, tick normalisation, long-frame clamp, no-overshoot step) lives
   only in `CameraEasing`; state holders delegate to it.
+- The lighting draw seam has three inputs, one concern each: `HdDrawRequest`
+  (what the primitive is and whether the rows are on for it), `HdDrawSpace`
+  (where its vertices are: model-to-scene and eye rows) and `HdFrameState`
+  (the frame's point lights, shadow map and strength, atmosphere, light,
+  environment and sway rows). Assemble the frame's half once in
+  `GlToolkit.hdFrameState(shadow)` and add fields there rather than new `begin`
+  overloads; the seam's shared early-outs (row off, map bake, depth pass, water
+  bound) live in `hdLightingAllowed()`.
+- A draw's flags are named rows (`HdDrawRows.Row`), never a positional boolean
+  list: the primitive's half is built by `GlToolkit.hdDrawRequest(textured,
+  vegetation)` and the scene's rows by `HdDrawRequest.current`. A new flag is a
+  new `Row` constant, not another constructor argument, so no two flags can be
+  swapped without the code changing. The gate predicates that take a value
+  instead of a row (`HdSwayGate.displaces(vegetation, sway)`) take the shaped
+  value for the same reason.
 - Input gating lives in the controller (`routeWheel`/`tickFog` style): pure,
   testable functions over `(notches, altHeld, ctrlHeld, shiftHeld)`.
   Document precedence (e.g. Alt+Ctrl resolves to zoom) in both code and tests.

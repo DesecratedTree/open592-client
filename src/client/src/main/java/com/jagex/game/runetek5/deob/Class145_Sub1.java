@@ -14,14 +14,13 @@ import org.openrs2.deob.annotation.Pc;
 
 
 import com.jagex.game.runetek5.buffer.Packet;
+import com.jagex.game.runetek5.client.config.LaunchConfig;
 import com.jagex.game.runetek5.config.quickchat.QuickchatMessageTypeList;
 import com.jagex.game.runetek5.deob.*;
 import com.jagex.game.runetek5.deob.Class130;
 import com.jagex.game.runetek5.ChatFilter;
 import com.jagex.game.runetek5.deob.SpotAnimation;
 import com.jagex.game.runetek5.config.enumtype.EnumType;
-import com.jagex.game.runetek5.config.material.texture.operation.TextureOpColorGradient;
-import com.jagex.game.runetek5.deob.Class186;
 import com.jagex.game.runetek5.deob.Class4_Sub6_Sub7;
 import com.jagex.game.runetek5.client.GameShell;
 import com.jagex.game.runetek5.vardomain.PlayerVarDomain;
@@ -97,7 +96,7 @@ public final class Class145_Sub1 extends ComponentSurface {
 			local40.method2531((int) (Math.random() * 9.9999999E7D));
 			local40.method2518(Class4_Sub36.aString52);
 			local40.method2531((int) (Math.random() * 9.9999999E7D));
-			local40.method2522(TextureOpColorGradient.aBigInteger1, Class186.aBigInteger2);
+			local40.method2522(LaunchConfig.rsaExponent(), LaunchConfig.rsaModulus());
 			ParticleNode.aClass4_Sub12_Sub1_5.currentPosition = 0;
 			ParticleNode.aClass4_Sub12_Sub1_5.method2551(Class4_Sub1_Sub11.aClass60_10.anInt1812);
 			ParticleNode.aClass4_Sub12_Sub1_5.method2551(local40.currentPosition + 2);

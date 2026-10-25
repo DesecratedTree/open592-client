@@ -13,6 +13,7 @@ import com.jagex.game.runetek5.unpack_Sub1;
 import com.jagex.game.runetek5.buffer.ArrayBufferGL;
 import com.jagex.game.runetek5.buffer.ElementsBufferGL;
 import com.jagex.game.runetek5.cache.node.lru.GlShadow;
+import com.jagex.game.runetek5.client.hd.shadow.ShadowCutout;
 import com.jagex.game.runetek5.cache.node.lru.Shadow;
 import com.jagex.game.runetek5.config.material.MaterialType;
 import com.jagex.game.runetek5.deob.Class177;
@@ -110,6 +111,21 @@ import com.jagex.game.runetek5.deob.Class4_Sub6_Sub22;
 import com.jagex.game.runetek5.deob.Class78_Sub1;
 @OriginalClass("client!ip")
 public final class GlModel extends Model {
+
+	/**
+	 * 592HD: what the scene says this model is, for the two vegetation rows.
+	 *
+	 * <p>{@code HdVegetation.NONE} unless a loc marked it, which is every model
+	 * the scene does not submit as ground-layer scenery - and every model in
+	 * stock. It lives on the model beside {@code renderState} because that is
+	 * where the draw seam already reads per-model state; the toolkit never
+	 * guesses the kind from geometry.
+	 *
+	 * <p>Deliberately not copied by the model's own copies: a copy is a new draw
+	 * site and the submitting caller re-marks it, so a stale kind cannot travel
+	 * to a model that is no longer that plant.
+	 */
+	public int hdVegetation;
 
 	@OriginalMember(owner = "client!ip", name = "q", descriptor = "[F")
 	private float[] aFloatArray20;
@@ -2037,7 +2053,13 @@ public final class GlModel extends Model {
 						local96 = -1;
 					}
 					this.glToolkit.method1938(local96, this.normalsBuffer != null);
+					// 592HD per-pixel lighting, bound per primitive because the
+					// material effect above may have bound its own program.
+					@Pc(97) boolean hdLighting = this.glToolkit.hdBeginModelLighting(local96 >= 0, this.hdVegetation);
 					this.glToolkit.method1967(local82 * 3, (local89 - local82) * 3, this.aClass230_1.anInterface1_5);
+					if (hdLighting) {
+						this.glToolkit.hdEndModelLighting();
+					}
 				}
 			}
 		}
@@ -3669,6 +3691,11 @@ public final class GlModel extends Model {
 				cylinder.positionCalculated = true;
 			}
 		}
+		// 592HD: this model is about to be drawn, so it is a sun-shadow caster
+		// for the next frame's map: placement from the ground matrix the draw
+		// pushes, geometry from the same buffers. The seam is inert with the row
+		// or 592HD off, and records nothing outside the world draw.
+		this.glToolkit.hdRecordShadowCaster(this, local16);
 		this.glToolkit.method1904();
 		this.glToolkit.method1948(local16);
 		this.method2797();
@@ -3767,6 +3794,114 @@ public final class GlModel extends Model {
 			this.method2804();
 		}
 		return this.aShort28;
+	}
+
+	/**
+	 * 592HD: draws this model's geometry into an open sun depth pass.
+	 *
+	 * <p>No lit program, and no material at all with the cut-out row off: the
+	 * pass's modelview is the identity plus the caster's own placement, which is
+	 * the space {@link #anIntArray212} and the vertex buffer already hold, so the
+	 * triangles land where the screen draw puts them. Called from the seam's
+	 * caster list, never from the screen draw.
+	 *
+	 * <p>With the row on, each face group whose material carries an alpha channel
+	 * binds that material's texture and draws with the caster's own texcoords,
+	 * so the pass's alpha test sees the shape the player sees instead of the
+	 * quad. Groups with a solid or missing material keep the position-only path,
+	 * which is why a solid caster binds no texture and why a model without
+	 * texcoords still casts. Silent when the model has no faces or no uploaded
+	 * buffers: a model the world draw culled before its first upload cannot
+	 * cast, and the pass must not draw whatever the previous user of this
+	 * toolkit left bound.
+	 */
+	public void drawShadowDepth() {
+		if (this.numNormals <= 0 || this.renderedFaceCount <= 0 || this.aClass230_1 == null) {
+			return;
+		}
+		this.method2799(false);
+		if (this.aClass230_1.anInterface1_5 == null) {
+			this.method2808((this.renderState & 0x10) != 0);
+		}
+		if (this.aClass230_1.anInterface1_5 == null || this.vertexBuffer == null
+				|| this.vertexBuffer.anInterface11_7 == null) {
+			return;
+		}
+		this.glToolkit.hdBeginShadowCasterDraw();
+		// The group table can legitimately be gone: method2807 releases it for a
+		// mesh whose faces all lack an alpha group, while the geometry and the
+		// uploaded buffer stay. Such a caster still casts, as one position-only
+		// draw - the same path as the row being off.
+		if (!ShadowCutout.canDrawGroups(this.glToolkit.hdShadowCutoutActive(),
+				this.aClass177_9 != null && this.aClass177_9.anInterface11_7 != null,
+				this.anIntArray215, this.aShortArray107)) {
+			this.drawShadowDepthPositionsOnly();
+			return;
+		}
+		// A caster whose materials all lack an alpha channel has nothing to test:
+		// one position-only draw, exactly like the row-off path, instead of a
+		// draw call per group with an unbound unit.
+		int groups = this.anIntArray215.length - 1;
+		boolean alpha = false;
+		for (int group = 0; group < groups && !alpha; group++) {
+			alpha = this.groupMaterial(group) >= 0;
+		}
+		if (!alpha) {
+			this.drawShadowDepthPositionsOnly();
+			return;
+		}
+		// The caster's own texcoords, so each group samples the texture the
+		// screen draw gives it. A group without an alpha material is drawn with
+		// the unit cleared: solid geometry still casts, it just binds nothing.
+		this.glToolkit.method1934(null, null, this.aClass177_9, this.vertexBuffer);
+		for (int group = 0; group < groups; group++) {
+			int start = this.anIntArray215[group];
+			int end = this.anIntArray215[group + 1];
+			if (start >= this.renderedFaceCount) {
+				break;
+			}
+			if (end > this.renderedFaceCount) {
+				end = this.renderedFaceCount;
+			}
+			this.glToolkit.hdBindShadowCasterMaterial(this.groupMaterial(group));
+			this.glToolkit.method1967(start * 3, (end - start) * 3, this.aClass230_1.anInterface1_5);
+		}
+	}
+
+	/** The whole rendered mesh, with no material and no texcoords. */
+	private void drawShadowDepthPositionsOnly() {
+		this.glToolkit.method1934(null, null, null, this.vertexBuffer);
+		this.glToolkit.method1967(0, this.renderedFaceCount * 3, this.aClass230_1.anInterface1_5);
+	}
+
+	/**
+	 * The material one face group samples, or -1 when the group is to draw with
+	 * the unit cleared: only a material whose texture has an alpha channel is
+	 * worth binding in a depth pass.
+	 */
+	private int groupMaterial(int group) {
+		if (this.anIntArray215 == null || this.aShortArray107 == null) {
+			return -1;
+		}
+		int start = this.anIntArray215[group];
+		if (start >= this.renderedFaceCount) {
+			return -1;
+		}
+		int material = this.aShortArray107[start] & 0xFFFF;
+		if (material == 65535 || !this.hasAlphaMaterial(material)) {
+			return -1;
+		}
+		return material;
+	}
+
+	/** True when this material's texture has an alpha channel worth testing. */
+	private boolean hasAlphaMaterial(int material) {
+		if (material < 0 || this.glToolkit.materialProvider == null
+				|| !this.glToolkit.materialProvider.textureAvailable(material)) {
+			return false;
+		}
+		MaterialType type = this.glToolkit.materialProvider.getMetrics(material);
+		return type != null && type.aByte92 != 0;
 	}
 
 	@OriginalMember(owner = "client!ip", name = "c", descriptor = "()V")

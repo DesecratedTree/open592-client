@@ -62,6 +62,10 @@ public final class OpenGLTextureCache {
 	public OpenGl2DTexture method1549(@OriginalArg(0) int arg0) {
 		@Pc(17) Object local17 = this.aClass68_7.method1787((long) arg0);
 		if (local17 != null) {
+			// 592HD: a texture built before a quality row changed picks the new
+			// state up here; a no-op when nothing changed.
+			((OpenGl2DTexture) local17).hdApplyTextureQuality(
+				((OpenGl2DTexture) local17).anInt5466, ((OpenGl2DTexture) local17).anInt5458);
 			return (OpenGl2DTexture) local17;
 		} else if (this.materialProvider.textureAvailable(arg0)) {
 			@Pc(36) MaterialType local36 = this.materialProvider.getMetrics(arg0);
@@ -83,6 +87,10 @@ public final class OpenGLTextureCache {
 				local80 = new OpenGl2DTexture(this.aClass19_Sub2_12, 3553, local102, local45, local45, local36.aByte92 != 0, local100, false);
 			}
 			local80.method4196(local36.aBoolean643, local36.aBoolean644);
+			// 592HD: the Mipmaps and Anisotropic rows are properties of the
+			// texture, so they are applied here, once, where a world texture is
+			// made - never per draw.
+			local80.hdApplyTextureQuality(local45, local45);
 			this.aClass68_7.method1779((long) arg0, local80);
 			return local80;
 		} else {

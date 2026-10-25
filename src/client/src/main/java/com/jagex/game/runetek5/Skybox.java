@@ -24,6 +24,7 @@ import com.jagex.game.runetek5.*;
 import com.jagex.game.runetek5.js5.Js5MasterIndex;
 import com.jagex.game.runetek5.cache.node.GlMemoryPool;
 import com.jagex.game.runetek5.client.camera.CameraZoom;
+import com.jagex.game.runetek5.client.hd.HdFrameSequence;
 import com.jagex.game.runetek5.deob.Class4_Sub6_Sub35;
 import com.jagex.game.runetek5.deob.Class4_Sub23;
 import com.jagex.game.runetek5.deob.Class4_Sub45;
@@ -356,7 +357,20 @@ public final class Skybox {
 			TextureOpIrregularBricks.method1772(AbstractFontRenderer.anInt6458 << 1, local113 / 2 + local119, local115 / 2 + local117, AbstractFontRenderer.anInt6458 << 1);
 			Class267.method5621(-FontMetrics.anInt2790 & 0x3FFF, -Class70_Sub1.anInt2070 & 0x3FFF, Class4_Sub23.anInt3197, Static145.anInt2906, -QuickChatPhrase.anInt7074 & 0x3FFF, TextureOpIrregularBricks.anInt2024);
 			@Pc(548) byte local548 = TextureOpBrightness.aClass50_Sub1_1.method2858(Packet.anInt2973) == 2 ? (byte) Class79_Sub1.anInt6264 : 1;
+			// 592HD: the one frame seam for the sky. Camera and frustum are
+			// current here and no world geometry exists yet, so the dome is the
+			// background the world draws over. A map with its own skybox keeps
+			// it - the dome only fills the stock path's flat fog slot.
+			HdFrameSequence.drawSky(GlMemoryPool.aClass242_1 != null);
+			// 592HD: the sun's depth pass, one per frame and before any world
+			// geometry, centred on the camera's scene x/z. With the row off it
+			// issues no GL call, so the stock frame is untouched.
+			HdFrameSequence.drawSunShadows((float) Class4_Sub23.anInt3197, 0.0F, (float) Static145.anInt2906);
+			// 592HD: every model this world draw submits is recorded as a caster
+			// for the next frame's sun map. Outside this window nothing records.
+			HdFrameSequence.beginWorldDraw();
 			Class62.method1610(MonoStereoData.aClass19_16, Shadow.anInt5323, TextureType.anInt4043, Class3_Sub3.aClass31_1, Class4_Sub23.anInt3197, TextureOpIrregularBricks.anInt2024, Static145.anInt2906, Class10.aByteArrayArrayArray1, Class183.anIntArray360, QuickchatMessageType.DYNAMIC_CORNER_WALL_SIDE_MASKS, MapSpriteTypeList.anIntArray549, Class190.anIntArray376, Class38.anIntArray53, Static1.aClass16_Sub1_Sub5_Sub1_1.aByte82 + 1, local548, Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6893 >> 7, Static1.aClass16_Sub1_Sub5_Sub1_1.anInt6892 >> 7, !TextureOpBrightness.aClass50_Sub1_1.aBoolean295);
+			HdFrameSequence.endWorldDraw();
 			CubeMapSpecularEffect.method2701();
 			if (VertexDeclarationComponent.anInt6667 == 30) {
 				Class92.method2429(local115, local117, local113, local119);

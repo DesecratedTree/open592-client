@@ -9,6 +9,7 @@ import org.openrs2.deob.annotation.Pc;
 
 import com.jagex.game.runetek5.buffer.ElementsBufferGL;
 import com.jagex.game.runetek5.client.animation.Tweening;
+import com.jagex.game.runetek5.client.hd.HdCommands;
 import com.jagex.game.runetek5.client.cursor.CursorSettings;
 import com.jagex.game.runetek5.client.render.RenderCores;
 import com.jagex.game.runetek5.graphics.gl.GlToolkit;
@@ -156,6 +157,9 @@ public final class GlVboElementsArrayBuffer extends AbstractArbBufferGL implemen
 @OriginalMember(owner = "client!ue", name = "a", descriptor = "(Ljava/lang/String;ZI)V")
 	public static void method5186(@OriginalArg(0) String arg0, @OriginalArg(1) boolean arg1) {
 		if (GlToolkit.aClass219_2 == Class222.aClass219_6 && GlToolkit.activeChildCount < 2) {
+			return;
+		}
+		if (HdCommands.handle(arg0)) {
 			return;
 		}
 		if (arg0.equalsIgnoreCase("errortest")) {

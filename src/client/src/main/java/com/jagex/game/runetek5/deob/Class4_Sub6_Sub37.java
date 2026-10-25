@@ -7,6 +7,7 @@ import org.openrs2.deob.annotation.Pc;
 
 
 import com.jagex.game.runetek5.buffer.Packet;
+import com.jagex.game.runetek5.client.config.LaunchConfig;
 import com.jagex.game.runetek5.config.material.texture.TextureOperation;
 import java.io.IOException;
 import java.net.Socket;
@@ -61,7 +62,6 @@ import com.jagex.game.runetek5.deob.TileLighting;
 import com.jagex.game.runetek5.deob.SpotAnimation;
 import com.jagex.game.runetek5.graphics.map.worldmap.WorldMapElement;
 import com.jagex.game.runetek5.config.midi.SoundBankCache;
-import com.jagex.game.runetek5.config.material.texture.operation.TextureOpColorGradient;
 import com.jagex.game.runetek5.deob.Class269;
 import com.jagex.game.runetek5.Terrain;
 import com.jagex.game.runetek5.deob.Class6_Sub2;
@@ -249,7 +249,7 @@ public final class Class4_Sub6_Sub37 extends TextureOperation {
 				local185.method2531(local188[3]);
 				local185.method2504(Class4_Sub6_Sub7.method1684(Static2.aString1));
 				local185.method2518(Class4_Sub36.aString52);
-				local185.method2522(TextureOpColorGradient.aBigInteger1, Class186.aBigInteger2);
+				local185.method2522(LaunchConfig.rsaExponent(), LaunchConfig.rsaModulus());
 				ParticleNode.aClass4_Sub12_Sub1_5.currentPosition = 0;
 				if (VertexDeclarationComponent.anInt6667 == 40) {
 					ParticleNode.aClass4_Sub12_Sub1_5.method2551(Class4_Sub1_Sub11.aClass60_5.anInt1812);

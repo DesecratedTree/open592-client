@@ -30,6 +30,52 @@ import com.jagex.game.runetek5.cache.node.GpuPointLight;
 import com.jagex.game.runetek5.cache.node.MemoryPool;
 import com.jagex.game.runetek5.cache.node.PointLight;
 import com.jagex.game.runetek5.client.camera.FogDistance;
+import com.jagex.game.runetek5.client.hd.HdFeature;
+import com.jagex.game.runetek5.client.hd.HdSettings;
+import com.jagex.game.runetek5.client.hd.atmosphere.HdAtmosphere;
+import com.jagex.game.runetek5.client.hd.ground.GroundTileSpace;
+import com.jagex.game.runetek5.client.hd.ground.HdGroundTextures;
+import com.jagex.game.runetek5.client.hd.ground.HdMaterialArt;
+import com.jagex.game.runetek5.client.hd.ground.HdMaterialMap;
+import com.jagex.game.runetek5.client.hd.ground.HdTerrainBlend;
+import com.jagex.game.runetek5.client.hd.ground.HdTileMaterialMap;
+import com.jagex.game.runetek5.client.hd.ground.HdWorldPage;
+import com.jagex.game.runetek5.client.hd.ground.HdGroundWater;
+import com.jagex.game.runetek5.client.hd.light.HdEnvironmentLight;
+import com.jagex.game.runetek5.client.hd.light.HdLightFrame;
+import com.jagex.game.runetek5.client.hd.reflect.HdReflection;
+import com.jagex.game.runetek5.client.hd.shader.HdDrawRequest;
+import com.jagex.game.runetek5.client.hd.shader.HdDrawRows;
+import com.jagex.game.runetek5.client.hd.shader.HdDrawSpace;
+import com.jagex.game.runetek5.client.hd.shader.HdFrameState;
+import com.jagex.game.runetek5.client.hd.shader.HdLightingGate;
+import com.jagex.game.runetek5.client.hd.shader.HdLightingPipeline;
+import com.jagex.game.runetek5.client.hd.shader.HdShaderSource;
+import com.jagex.game.runetek5.client.hd.shader.JagglShaderApi;
+import com.jagex.game.runetek5.client.hd.state.HdGlState;
+	import com.jagex.game.runetek5.client.hd.post.HdPostParams;
+	import com.jagex.game.runetek5.client.hd.post.HdPostProcess;
+	import com.jagex.game.runetek5.client.hd.sky.HdDayNight;
+import com.jagex.game.runetek5.client.hd.sky.HdSkyColours;
+import com.jagex.game.runetek5.client.hd.sky.HdSkyPipeline;
+import com.jagex.game.runetek5.client.hd.sky.HdSkyTime;
+import com.jagex.game.runetek5.client.hd.sky.SkyGate;	import com.jagex.game.runetek5.client.hd.water.HdWaterBreaking;
+	import com.jagex.game.runetek5.client.hd.water.HdWaterGate;
+	import com.jagex.game.runetek5.client.hd.water.HdWaterPipeline;
+import com.jagex.game.runetek5.client.hd.water.HdWaterRequest;
+import com.jagex.game.runetek5.client.hd.water.HdWaterSource;
+import com.jagex.game.runetek5.client.hd.water.HdWaterTime;
+import com.jagex.game.runetek5.client.hd.shadow.ShadowBinding;
+import com.jagex.game.runetek5.client.hd.shadow.ShadowCaster;
+import com.jagex.game.runetek5.client.hd.shadow.ShadowCasterSet;
+import com.jagex.game.runetek5.client.hd.shadow.SunShadowFrame;
+import com.jagex.game.runetek5.client.hd.shadow.SunShadowGate;
+import com.jagex.game.runetek5.client.hd.shadow.SunShadowSubmission;
+import com.jagex.game.runetek5.client.hd.shadow.SunShadowMap;
+import com.jagex.game.runetek5.client.hd.sway.HdSway;
+import com.jagex.game.runetek5.client.hd.sway.HdSwayGate;
+import com.jagex.game.runetek5.client.hd.sway.HdVegetation;
+import com.jagex.game.runetek5.client.hd.sway.HdWindTime;
 import com.jagex.game.runetek5.client.render.RendererInfo;
 import com.jagex.game.runetek5.config.material.MaterialType;
 import com.jagex.game.runetek5.config.rsinterface.ComponentSurface;
@@ -164,6 +210,158 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 
 	@OriginalMember(owner = "client!fd", name = "jf", descriptor = "I")
 	private int lastSceneLightCount;
+
+	/**
+	 * The 592HD lighting program, owned for this context's lifetime: created
+	 * here, prepared from the settings backend, deleted in {@link #stop()} before
+	 * the GL context is released.
+	 */
+	private final HdLightingPipeline hdLighting = new HdLightingPipeline(new JagglShaderApi());
+
+	/**
+	 * True while the client is baking the top-down map texture.
+	 *
+	 * <p>That bake draws the scene's ground objects through the same pass as the
+	 * world - {@code GlGround.method4025} - into a small texture, from a
+	 * projection of its own. The per-pixel program's lighting, shadow map and fog
+	 * are all expressed in the scene camera's space, so applying them here lights
+	 * a view the camera never had: the whole map collapses to one fogged tone.
+	 * The stock path draws that bake with the fixed-function lights it sets up
+	 * itself, so the seam stands aside for it.
+	 */
+	private boolean hdMapBake;
+
+	/** The model-to-scene matrix of the primitive being drawn; see method1948. */
+	private final float[] hdModelMatrix = { 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F,
+		0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F };
+
+	/**
+	 * Tile space to scene space for the terrain seam, rewritten by every ground
+	 * draw; see {@link GroundTileSpace#tileToScene}.
+	 */
+	private final float[] hdTileToScene = { 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F,
+		0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F };
+
+	/**
+	 * {@code rotX(180) * V}, rewritten on demand by the terrain seam and by a
+	 * displaced vegetation draw; see {@link GroundTileSpace#sceneToEye}.
+	 */
+	private float[] hdSceneToEye;
+
+	/** Vegetation primitives submitted for displacement since startup. */
+	private long hdSwayBinds;
+
+	/** HD water's program owner; created with the toolkit, compiled on first use. */
+	private final HdWaterPipeline hdWater = new HdWaterPipeline(new JagglShaderApi());
+
+	/** One line on the first live 592HD water draw; zero draws means the seam is dead. */
+	private boolean hdWaterReported;
+
+	/** True while an HD water draw has the environment cube on unit 1, so it is cleared. */
+	private boolean hdWaterCubeBound;
+
+	/** True while the reflection cube is bound on its own unit for the open draw. */
+	private boolean hdReflectionCubeBound;
+
+	/**
+	 * The sun shadow map's raw name while it is bound on its sampler unit, else 0.
+	 *
+	 * <p>The cache in {@code aClass6Array1} can only name a {@code Class6}; this is
+	 * the one texture the toolkit binds that is not one. Keeping its name beside
+	 * the cache is what lets a bind on that unit clear it and what makes
+	 * {@link #hdGlState()} describe the unit the way GL actually has it.
+	 */
+	private int hdShadowTextureName;
+
+	/**
+	 * The alpha-test function this toolkit last issued, or {@link HdGlState#UNKNOWN}
+	 * before it has issued one.
+	 *
+	 * <p>Unlike the enable flags this has no short-circuiting setter: it is issued
+	 * once, by {@link #prepareForRendering()}, and every pass that changes it (the
+	 * sun's cut-out) saves and restores it. Recording the value the toolkit set is
+	 * what lets {@link #hdGlState()} answer for it, so a pass that restores the
+	 * flag but not the function is named instead of quietly leaving a half-opaque
+	 * threshold behind for the interface's sprites.
+	 */
+	private int hdAlphaFunc = HdGlState.UNKNOWN;
+
+	/** The depth function this toolkit last issued, or {@link HdGlState#UNKNOWN}. */
+	private int hdDepthFunc = HdGlState.UNKNOWN;
+
+	/**
+	 * Units 3..5 still hold the ground atlas from the draw that bound them; the
+	 * seam releases them when that draw ends.
+	 */
+	private boolean hdGroundUnitsBound;
+
+	/**
+	 * The map's art test: whether a page build would fill this material's cell.
+	 *
+	 * <p>Delegated, not restated: {@link HdMaterialArt} is the one owner of the
+	 * upload's format and of the page's ability to hold a material, so the map and
+	 * the page cannot disagree about either. A cell the page skipped holds zeroes,
+	 * which the ground shader reads as a black texel with alpha zero - discarded
+	 * by the pass' alpha test, so the terrain writes no colour and no depth and
+	 * whatever is behind it draws through.
+	 */
+	private final HdMaterialMap.Art hdGroundArt = new HdMaterialMap.Art() {
+		@Override
+		public boolean available(int material) {
+			return hdGroundArtAvailable(material);
+		}
+	};
+
+	/** The material's stock texture-effect slot for the draw being submitted; -1 when none. */
+	private int hdMaterialSlot = -1;
+
+	/** True between a model material bind and the draw that consumes it. */
+	private boolean hdModelMaterialBind;
+
+	/** The ground material map: which page cell holds which material's texture. */
+	private final HdMaterialMap hdMaterialMap = new HdMaterialMap();
+
+	/** 592HD: ground draws that bound the world-texture atlas (one per layer draw). */
+	private long hdGroundAtlasBinds;
+
+	/** 592HD: atlas pages uploaded, and the pages they retired. */
+	private long hdGroundPageBuilds;
+
+	private long hdGroundPageDisposals;
+
+	/** The world-texture page and its material map, built as materials appear. */
+	private OpenGl2DTexture hdWorldPage;
+
+	private OpenGl2DTexture hdMaterialIdMap;
+
+	private int hdWorldPageVersion = -1;
+
+	/** The screen-space pass; created with the toolkit, compiled on first use. */
+	private final HdPostProcess hdPost = new HdPostProcess(new JagglShaderApi());
+
+	/** The sky dome; created with the toolkit, compiled on the first frame that draws it. */
+	private final HdSkyPipeline hdSky = new HdSkyPipeline(new JagglShaderApi());
+
+	/** Created on the first sun shadow pass; null until then, and after teardown. */
+	private SunShadowMap sunShadow;
+
+	/** The per-frame shadow driver: gating, order and counters. Never null. */
+	private final SunShadowFrame sunShadowFrame = new SunShadowFrame();
+
+	/** The scene's per-frame casters-only submission; never null, empty until fed. */
+	private final SunShadowSubmission hdShadowSubmission = new SunShadowSubmission();
+
+	/** Scratch for one caster's matrix, so the pass allocates nothing per frame. */
+	private final float[] hdShadowMatrix = new float[16];
+
+	/** Casters the last {@link #hdSunShadowFrame} call actually submitted. */
+	private long hdShadowCasters;
+
+	/** Material textures the last frame's casters bound; zero for a solid set. */
+	private long hdShadowMaterialBinds;
+
+	/** True while the world draw is recording this frame's casters. */
+	private volatile boolean hdShadowCollecting;
 
 	@OriginalMember(owner = "client!fd", name = "kf", descriptor = "Lclient!bk;")
 	private ArrayBufferGL anInterface1_1;
@@ -945,10 +1143,25 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 
 	@OriginalMember(owner = "client!fd", name = "a", descriptor = "(BLclient!kj;)V")
 	public void setActiveTexture(@OriginalArg(1) Class6 arg0) {
+		// The shadow map is not a Class6: hdBindShadowTexture binds it raw and
+		// records its name here. Any bind on that unit has to clear it first,
+		// or the cache would read "nothing bound" and the disable below would
+		// be skipped, leaving a depth map sampling under whatever binds next.
+		if (this.anInt2301 == HdShaderSource.SAMPLER_UNIT_SHADOW && this.hdShadowTextureName != 0) {
+			OpenGL.glDisable(3553);
+			OpenGL.glBindTexture(3553, 0);
+			this.hdShadowTextureName = 0;
+			this.aClass6Array1[this.anInt2301] = null;
+		}
 		@Pc(11) Class6 local11 = this.aClass6Array1[this.anInt2301];
 		if (local11 != arg0) {
 			if (arg0 == null) {
+				// Clearing a unit disables the target *and* unbinds it. Disabling
+				// alone leaves the name on the unit, so the cache's "nothing here"
+				// would describe the enabled state while GL still holds a texture
+				// that a later raw bind could re-enable by accident.
 				OpenGL.glDisable(local11.anInt5441);
+				OpenGL.glBindTexture(local11.anInt5441, 0);
 			} else {
 				if (local11 == null) {
 					OpenGL.glEnable(arg0.anInt5441);
@@ -995,6 +1208,1195 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@Override
 	public int getMaxLights() {
 		return 4;
+	}
+
+	/**
+	 * 592HD seam: binds the per-pixel lighting program for one model primitive.
+	 *
+	 * <p>All this method does is gather this draw's state - the stock shader
+	 * state already holds the sun, the point lights and the fog band, so the
+	 * program only has to be bound. Whether the bind is allowed is
+	 * {@link com.jagex.game.runetek5.client.hd.shader.HdLightingGate}'s decision,
+	 * evaluated once inside the pipeline. The settings are asked first so a
+	 * 592HD-off primitive allocates nothing on the model path.
+	 *
+	 * @param textured whether the primitive has a material texture
+	 * @return true when the caller must call {@link #hdEndModelLighting()}
+	 */
+	public boolean hdBeginModelLighting(@OriginalArg(0) boolean textured) {
+		return hdBeginModelLighting(textured, HdVegetation.NONE);
+	}
+
+	/**
+	 * The model seam with the scene's own classification of the model.
+	 *
+	 * <p>The kind travels with the draw, exactly as the light rows do: it comes
+	 * from the loc that submitted the model, not from anything this method could
+	 * infer. {@code HdVegetation.NONE} - every model the scene did not mark - is
+	 * the ordinary lit draw.
+	 *
+	 * <p>A vegetation draw additionally supplies the frame's scene-to-eye rows,
+	 * which the model path otherwise never needs: a displaced vertex has no
+	 * modelview entry that already contains its moved position, so the shader
+	 * re-derives eye space from the same {@code rotX(180) * V} the modelview is
+	 * built from. Nothing is supplied - and no GL call made - for a draw whose
+	 * rows would not move it.
+	 *
+	 * @param textured   whether the primitive has a material texture
+	 * @param vegetation this model's kind, from {@code HdVegetation}
+	 * @return true when the caller must call {@link #hdEndModelLighting()}
+	 */
+	public boolean hdBeginModelLighting(@OriginalArg(0) boolean textured, @OriginalArg(1) int vegetation) {
+		if (!hdLightingAllowed()) {
+			return false;
+		}
+		@Pc(6) ShadowBinding shadow = hdBindShadowMap();
+		@Pc(8) HdSway sway = hdSway();
+		@Pc(10) boolean displaces = HdSwayGate.displaces(vegetation, sway);
+		@Pc(12) float[] sceneToEye = displaces ? hdSceneToEye() : null;
+		if (displaces) {
+			this.hdSwayBinds++;
+		}
+		@Pc(14) HdDrawSpace space = HdDrawSpace.model(this.hdModelMatrix, sceneToEye);
+		HdDrawRequest request = hdDrawRequest(textured, vegetation)
+			.withMaterialEffectSlot(this.hdMaterialSlot);
+		// The reflection cube goes on its own unit before the program binds, and
+		// stays there until the draw ends. A draw that does not reflect leaves the
+		// unit exactly as it found it.
+		if (HdReflection.of(request.reflections(), request.materialEffectSlot()).active()) {
+			GlCubeTexture environment = this.method1946();
+			if (environment != null) {
+				this.method1936(HdShaderSource.SAMPLER_UNIT_REFLECTION);
+				this.setActiveTexture(environment);
+				this.method1936(0);
+				this.hdReflectionCubeBound = true;
+			}
+		}
+		boolean bound = this.hdLighting.begin(request, space, hdFrameState(shadow).withSway(sway));
+		if (!bound) {
+			// The map was bound for a draw that did not happen; the caller will
+			// not reach hdEndModelLighting().
+			hdReleaseShadowTexture();
+			if (this.hdReflectionCubeBound) {
+				hdUnbindReflectionCube();
+			}
+		}
+		return bound;
+	}
+
+	/**
+	 * This draw's request: the primitive's own rows, named, over the scene's rows
+	 * {@link HdDrawRequest#current} resolves from the settings and the gates. Both
+	 * seams build it here, so what describes a draw - its normals, its material,
+	 * its fog, its kind - is stated once and never by argument position.
+	 *
+	 * @param textured   whether the primitive has a material texture
+	 * @param vegetation the scene's classification of the model
+	 */
+	private HdDrawRequest hdDrawRequest(boolean textured, int vegetation) {
+		@Pc(4) HdDrawRows primitive = HdDrawRows.none()
+			.with(HdDrawRows.Row.NORMALS, this.aBoolean212)
+			.with(HdDrawRows.Row.TEXTURE, textured)
+			.with(HdDrawRows.Row.MATERIAL_EFFECT, this.effectManager.isEffectActive())
+			.with(HdDrawRows.Row.FOG, this.fogActive());
+		return HdDrawRequest.current(primitive, this.anInt2301, this.anInt2299, vegetation);
+	}
+
+	/**
+	 * The early-outs both lighting seams share, in one place: the row must be on
+	 * and the map not baking, the sun's depth pass must not be running - inside
+	 * it colour writes are off, so lighting and its shadow map would be work
+	 * thrown away - and HD water must not own the draw, since binding the lit
+	 * opaque program over it would replace the water with dry geometry.
+	 */
+	private boolean hdLightingAllowed() {
+		if (!HdLightingGate.lightingRequested() || this.hdMapBake) {
+			return false;
+		}
+		if (this.sunShadow != null && this.sunShadow.inPass()) {
+			return false;
+		}
+		return !this.hdWater.bound();
+	}
+
+	/**
+	 * True when this material is one the stock renderer already draws reflectively
+	 * and the lit program can take the draw without changing its blend.
+	 *
+	 * <p>The slot is the material's own claim (see {@link HdReflection}): only the
+	 * stock specular effect's slot is a reflection, so every other material keeps
+	 * the stock pass. The rest are the lit program's preconditions, checked here so
+	 * a draw is only taken from its effect when the program will actually bind:
+	 * the row, the program, vertex normals, the base texture unit, and the
+	 * {@code GL_MODULATE} environment the shader reproduces.
+	 */
+	private boolean hdReflectionOwns(MaterialType type) {
+		if (type == null || !hdLightingAllowed()) {
+			return false;
+		}
+		if (!HdReflection.of(HdSettings.value(HdFeature.REFLECTIONS) != 0, type.aByte89).active()) {
+			return false;
+		}
+		if (type.anInt6934 != HdReflection.MODULATE_ENVIRONMENT || !this.aBoolean212) {
+			return false;
+		}
+		if (this.anInt2301 != 0 || this.method1946() == null) {
+			return false;
+		}
+		return this.hdLighting.prepare();
+	}
+
+	/**
+	 * True when the effect selected for this material no longer matches what the
+	 * reflections row decides.
+	 *
+	 * <p>Without this, toggling the row while the same material stays bound would
+	 * leave the previous selection in place: the material-changed test would skip
+	 * the very bind that has to change its mind. The two states are exact
+	 * opposites - the surface is either drawn by the stock specular effect or by
+	 * the lit program - so a disagreement means the bind has to run again.
+	 */
+	private boolean hdReflectionStale(int material, boolean modelBind) {
+		if (!modelBind || material < 0 || super.materialProvider == null) {
+			return false;
+		}
+		MaterialType type = super.materialProvider.getMetrics(material);
+		if (type == null || type.aByte89 != HdReflection.SPECULAR_SLOT) {
+			return false;
+		}
+		return hdReflectionOwns(type) == this.effectManager.isEffectActive();
+	}
+
+	/**
+	 * Binds this frame's shadow map for a draw and returns it, or null when the
+	 * row has no map. The map lives on its own unit so it cannot disturb a
+	 * material bind.
+	 */
+	private ShadowBinding hdBindShadowMap() {
+		@Pc(3) ShadowBinding shadow = hdShadowBinding();
+		if (shadow != null) {
+			this.hdBindShadowTexture(this.sunShadow.textureName());
+		}
+		return shadow;
+	}
+
+	/**
+	 * Binds the sun shadow map on its sampler unit, through the per-unit cache.
+	 *
+	 * <p>The map is a raw texture name, not a {@code Class6}, so
+	 * {@link #setActiveTexture(Class6)} cannot describe it. This records the name
+	 * the cache would otherwise not know about, which is what makes
+	 * {@link #hdReleaseShadowTexture()} able to clear the unit and what makes any
+	 * later bind on this unit clear it too instead of silently inheriting it.
+	 * The common case - the row off, no map - is two comparisons and no call.
+	 */
+	public void hdBindShadowTexture(@OriginalArg(0) int texture) {
+		if (texture == 0) {
+			return;
+		}
+		this.method1936(HdShaderSource.SAMPLER_UNIT_SHADOW);
+		// Whatever the cache names here is not this draw's texture.
+		this.setActiveTexture(null);
+		OpenGL.glEnable(3553);
+		OpenGL.glBindTexture(3553, texture);
+		this.hdShadowTextureName = texture;
+		this.method1936(0);
+	}
+
+	/**
+	 * Leaves the shadow sampler unit empty and disabled, as the cache says it is.
+	 *
+	 * <p>Called at the end of every lighting draw, and on the paths where a draw
+	 * was refused after the map had already been bound, so no frame can carry a
+	 * depth map on that unit into the interface or the next pass.
+	 */
+	public void hdReleaseShadowTexture() {
+		if (this.hdShadowTextureName == 0) {
+			return;
+		}
+		this.method1936(HdShaderSource.SAMPLER_UNIT_SHADOW);
+		OpenGL.glDisable(3553);
+		OpenGL.glBindTexture(3553, 0);
+		this.aClass6Array1[HdShaderSource.SAMPLER_UNIT_SHADOW] = null;
+		this.hdShadowTextureName = 0;
+		this.method1936(0);
+	}
+
+	/** The shadow map name bound on its sampler unit, or 0 when the unit is clear. */
+	public int hdShadowTexture() {
+		return this.hdShadowTextureName;
+	}
+
+	/**
+	 * Empties every texture unit the toolkit owns, without asking the cache.
+	 *
+	 * <p>This is the one place that cannot go through
+	 * {@link #setActiveTexture(Class6)}, because it is the code that establishes
+	 * the state that cache describes from then on. The units arrive holding
+	 * whatever the context setup left on them - the toolkit's own constructor
+	 * textures among it - so a reset that reads the cache first is asking the
+	 * thing it is supposed to define: with an empty cache every clear is a no-op
+	 * and the residue survives into the first frame, where a plain
+	 * {@code glEnable} is then enough to sample it.
+	 *
+	 * <p>Both targets on each unit are disabled and unbound, and the per-unit
+	 * cache is nulled in the same pass, so afterwards every unit and its claim
+	 * agree exactly. The texture-environment state is set in the same loop the
+	 * stock code had it. Called once, from {@code prepareForRendering}.
+	 */
+	private void hdClearTextureUnits() {
+		if (this.aClass6Array1 == null) {
+			return;
+		}
+		// The unit count is the image-unit count: glActiveTexture addresses those,
+		// and the array is sized to the highest sampler the 592HD programs name,
+		// which can exceed the fixed-function combiner count.
+		int units = this.aClass6Array1.length;
+		if (this.anInt2285 > 0 && this.anInt2285 < units) {
+			units = this.anInt2285;
+		}
+		for (int unit = 0; unit < units; unit++) {
+			this.method1936(unit);
+			OpenGL.glDisable(3553);
+			OpenGL.glDisable(34067);
+			OpenGL.glBindTexture(3553, 0);
+			OpenGL.glBindTexture(34067, 0);
+			this.aClass6Array1[unit] = null;
+			OpenGL.glTexEnvi(8960, 8704, 34160);
+		}
+		// The shadow map is the one texture that is not a Class6; its unit is
+		// cleared above like any other, so its name goes with it.
+		this.hdShadowTextureName = 0;
+		this.method1936(0);
+	}
+
+	/**
+	 * This frame's half of the lighting state, as one value: the scene's live
+	 * point lights, the shadow map the seam just bound, and the four rows the
+	 * frame owns. Both seams read it, so a new frame-owned row is added here once
+	 * instead of in every seam's argument list.
+	 */
+	private HdFrameState hdFrameState(ShadowBinding shadow) {
+		return HdFrameState.of(this.lastSceneLightCount).withShadow(shadow)
+			.withStrength(hdDayNight().shadow()).withAtmosphere(HdAtmosphere.current())
+			.withLights(HdLightFrame.current()).withEnvironment(hdEnvironmentLight())
+			.withWaterSeconds(HdWaterTime.seconds());
+	}
+
+	/**
+	 * This frame's vegetation displacement block, or {@link HdSway#OFF}.
+	 *
+	 * <p>Both amplitudes come from the gate, the phase from the frame's wind
+	 * clock, and the viewer from the frame's own camera: inverting the
+	 * scene-to-eye map it already supplies is the only position this side can
+	 * recover without reaching into game state. The allocation-free early-out
+	 * keeps a 592HD-off or rows-off frame exactly as cheap as it was.
+	 */
+	private HdSway hdSway() {
+		if (!HdSwayGate.requested() || this.aClass31_Sub1_4 == null) {
+			return HdSway.OFF;
+		}
+		return HdSway.ofScene(HdSwayGate.foliageRequested(), HdSwayGate.grassRequested(),
+			HdWindTime.seconds(), hdSceneToEye());
+	}
+
+	/**
+	 * This frame's {@code rotX(180) * V}, rewritten on demand into one scratch
+	 * array. Shared by the terrain seam and the vegetation displacement: both
+	 * need the transform the modelview is built from, and {@code method5161}
+	 * returns a scratch array of its own that the next matrix call overwrites.
+	 */
+	private float[] hdSceneToEye() {
+		if (this.hdSceneToEye == null) {
+			this.hdSceneToEye = new float[16];
+		}
+		GroundTileSpace.sceneToEye(this.aClass31_Sub1_4.method5161(), this.hdSceneToEye);
+		return this.hdSceneToEye;
+	}
+
+	/**
+	 * 592HD seam: per-pixel lighting for the terrain's tile window.
+	 *
+	 * <p>The ground pass loads an identity modelview and draws tile-space
+	 * vertices under a tile-window ortho projection, so neither the scene nor the
+	 * eye position can be read from {@code gl_Vertex} or the modelview. This
+	 * supplies both:
+	 *
+	 * <ul>
+	 * <li>tile-to-scene from {@link GroundTileSpace#tileToScene}, with the window
+	 * origin the caller's own ortho subtracts;</li>
+	 * <li>scene-to-eye from {@link GroundTileSpace#sceneToEye} over this frame's
+	 * camera - {@code rotX(180) * V}, exactly the matrix {@link #method1952()}
+	 * loads before a ground draw.</li>
+	 * </ul>
+	 *
+	 * <p>Both are needed for the shadow map, which is defined in scene space: the
+	 * ground has to report the same world position a model at that spot reports,
+	 * or a caster's shadow stops at the model/ground seam. The stock path is
+	 * untouched - nothing here runs, and no GL call is made, when the rows that
+	 * use it are off.
+	 *
+	 * <p>There are two callers. The top-down map bake keeps an identity
+	 * modelview and its own tile-window ortho, so it names the window it is
+	 * drawing; that call is guarded and never binds.
+	 * {@code GlGroundLayer.method1462} - the pass the scene submits every frame -
+	 * draws the same buffer, already in scene units, under the camera's own
+	 * matrices, so it passes the window origin 0 and this becomes the identity:
+	 * the world position the shader reads is exactly the one GL rasterises.
+	 *
+	 * @param textured  whether the ground layer has a material texture
+	 * @param tileUnits vertices per tile ({@code GlGround.anInt5261})
+	 * @param originX   the window's first tile on the vertex buffer's x axis
+	 * @param originZ   the window's first tile on the vertex buffer's z axis
+	 * @param water     the water standing over the tiles this layer draws, which
+	 *                  is the caller's own per-tile value: the stock 0..255 depth
+	 *                  byte {@code GlGroundLayer} keeps (see {@link HdGroundWater})
+	 */
+	public boolean hdBeginGroundLighting(@OriginalArg(0) boolean textured,
+			@OriginalArg(1) int tileUnits, @OriginalArg(2) int originX, @OriginalArg(3) int originZ,
+			HdGroundWater water) {
+		return hdBeginGroundLighting(textured, tileUnits, originX, originZ, water, -1, 1.0F, null);
+	}
+
+	/**
+	 * 592HD seam: the same ground draw, with the layer's own material and its
+	 * mesh's per-tile material map.
+	 *
+	 * <p>The material is what the stock draw selects a texture by; the atlas
+	 * needs it for the same reason, and the map turns it into a page cell. The
+	 * tile map is the mesh's, built when its layers were: it is what lets a
+	 * fragment read the tile's second material without a second draw.
+	 */
+	public boolean hdBeginGroundLighting(@OriginalArg(0) boolean textured,
+			@OriginalArg(1) int tileUnits, @OriginalArg(2) int originX, @OriginalArg(3) int originZ,
+			HdGroundWater water, @OriginalArg(5) int material, @OriginalArg(6) float textureScale,
+			@OriginalArg(7) OpenGl2DTexture tileMaterials) {
+		if (!hdLightingAllowed() || tileUnits <= 0) {
+			return false;
+		}
+		@Pc(6) ShadowBinding shadow = hdBindShadowMap();
+		GroundTileSpace.tileToScene(this.hdTileToScene, tileUnits, originX, originZ);
+		this.hdSceneToEye = hdSceneToEye();
+		@Pc(8) HdDrawSpace space = HdDrawSpace.sceneSpace(this.hdTileToScene, this.hdSceneToEye);
+		// No vegetation in the terrain pass: its tiles are not submitted as
+		// plants, so the frame's displacement block stays OFF and this draw is
+		// the same draw it was before the rows existed.
+		@Pc(10) HdDrawRequest request = hdDrawRequest(textured, 0).withWater(water);
+		@Pc(12) int pageMaterial = hdBindGroundTextures(request, material, textureScale, tileMaterials);
+		@Pc(14) HdGroundTextures textures = HdGroundTextures.of(
+			request.worldTextures() && request.materialMaps(), pageMaterial, textured, tileUnits,
+			textureScale, HdTerrainBlend.of(request.terrainBlend()));
+		@Pc(16) boolean bound = this.hdLighting.begin(request.withGroundTextures(textures), space,
+			hdFrameState(shadow));
+		if (!bound) {
+			// The map was bound for a draw that did not happen.
+			hdReleaseShadowTexture();
+		}
+		return bound;
+	}
+
+	/**
+	 * Registers this layer's material on the page and binds the three ground
+	 * textures, returning the material the shader may sample or -1 when the
+	 * atlas cannot take this draw.
+	 *
+	 * <p>Nothing is built or bound unless both rows are on: a frame with them off
+	 * makes no GL call here and the stock draw is untouched.
+	 *
+	 * <p>A material that is new to the page - or new to this frame, because the
+	 * page filled and its cell went to a material drawn more recently - gets a
+	 * stock draw for the frame it joins in. That is the same rule for both cases:
+	 * the page that exists cannot hold it, and a material the page does not hold
+	 * must never sample a cell that belongs to another material.
+	 */
+	private int hdBindGroundTextures(HdDrawRequest request, int material, float textureScale,
+			OpenGl2DTexture tileMaterials) {
+		if (!request.worldTextures() || !request.materialMaps() || material < 0 || super.materialProvider == null
+			|| !super.materialProvider.textureAvailable(material)) {
+			return -1;
+		}
+		int pageVersion = this.hdWorldPageVersion;
+		int cell = this.hdMaterialMap.register(material, super.materialProvider.getMetrics(material),
+			this.hdGroundArt);
+		if (cell < 0 || tileMaterials == null) {
+			return -1;
+		}
+		if (this.hdWorldPage == null || pageVersion != this.hdMaterialMap.version()) {
+			// This material joined after the page was last built, so the page
+			// that exists cannot hold it. Build the page now - before any draw
+			// samples it - and draw the stock material texture for this frame:
+			// a page is never sampled by the frame that built it, and a material
+			// the page does not hold never reads an empty cell. The next draw
+			// finds the page current and takes the atlas path.
+			buildGroundPage();
+			return -1;
+		}
+		this.method1936(HdShaderSource.SAMPLER_UNIT_WORLD_TEXTURES);
+		this.setActiveTexture(this.hdWorldPage);
+		this.method1936(HdShaderSource.SAMPLER_UNIT_MATERIAL_MAPS);
+		this.setActiveTexture(this.hdMaterialIdMap);
+		this.method1936(HdShaderSource.SAMPLER_UNIT_TILE_MATERIALS);
+		this.setActiveTexture(tileMaterials);
+		this.method1936(0);
+		this.hdGroundUnitsBound = true;
+		this.hdGroundAtlasBinds++;
+		return material;
+	}
+
+	/**
+	 * Uploads the world-texture page and the material map from the client's own
+	 * material sampler.
+	 *
+	 * <p>The two textures are built while the material unit is current - the
+	 * draw has already bound this layer's stock texture there - and an
+	 * {@code OpenGl2DTexture} binds itself on construction. Their construction
+	 * must therefore leave the material unit exactly as it found it: the stock
+	 * path this frame samples that unit, and the toolkit's bind cache would
+	 * otherwise claim a texture is bound that has been replaced.
+	 */
+	private void buildGroundPage() {
+		@Pc(1) Class6 materialTexture = this.aClass6Array1[0];
+		@Pc(2) OpenGl2DTexture retiredPage = this.hdWorldPage;
+		@Pc(3) OpenGl2DTexture retiredMap = this.hdMaterialIdMap;
+		this.hdWorldPage = new OpenGl2DTexture(this, 3553, 6408, HdWorldPage.size(), HdWorldPage.size(),
+			false, HdWorldPage.pixels(this.hdMaterialMap, super.materialProvider), false);
+		this.hdMaterialIdMap = new OpenGl2DTexture(this, 3553, 6408, HdMaterialMap.WIDTH, 1, false,
+			this.hdMaterialMap.texels(), 6408, false);
+		this.hdWorldPageVersion = this.hdMaterialMap.version();
+		this.hdGroundPageBuilds++;
+		this.method1936(0);
+		this.setActiveTexture(materialTexture);
+		// A rebuild replaces both textures. Everything the atlas owns is small
+		// except the page, and a session that streams a material per frame would
+		// leave one page per registration alive until finalization runs - the
+		// driver keeps the memory, and the toolkit's accounting keeps counting
+		// it. Release the retires now, and forget the bindings to them so a
+		// later bind cannot be skipped against a deleted object.
+		if (retiredPage != null) {
+			this.aClass6Array1[HdShaderSource.SAMPLER_UNIT_WORLD_TEXTURES] = null;
+			retiredPage.method4183();
+			this.hdGroundPageDisposals++;
+		}
+		if (retiredMap != null) {
+			this.aClass6Array1[HdShaderSource.SAMPLER_UNIT_MATERIAL_MAPS] = null;
+			retiredMap.method4183();
+		}
+	}
+
+	/**
+	 * True when the page build would copy this material's art into a cell.
+	 *
+	 * <p>One call, no format knowledge: the toolkit asks the page's own owner what
+	 * art this material has and whether there is a cell's worth of it, and it is
+	 * that answer the map publishes. Restating the RGB-versus-alpha rule here is
+	 * how the page and the map came to disagree about an opaque material's alpha.
+	 */
+	private boolean hdGroundArtAvailable(int material) {
+		return HdMaterialArt.art(super.materialProvider, material) != null;
+	}
+
+	/** How many ground draws have bound the world-texture atlas. */
+	public long hdGroundAtlasBinds() {
+		return this.hdGroundAtlasBinds;
+	}
+
+	/** How many times a page (and its material map) has been uploaded. */
+	public long hdGroundPageBuilds() {
+		return this.hdGroundPageBuilds;
+	}
+
+	/** How many retired pages have been released to the driver. */
+	public long hdGroundPageDisposals() {
+		return this.hdGroundPageDisposals;
+	}
+
+	/**
+	 * 592HD: one world frame of the atlas' staleness clock.
+	 *
+	 * <p>Called once per outermost world draw, before the scene submits any
+	 * ground. Every material the frame draws is stamped with the new generation,
+	 * so the cells that get recycled when the page fills are the ones belonging to
+	 * materials this frame did not draw - the ones no longer in view. A nested
+	 * world draw (the reflective water effect's reflection) does not call it: it
+	 * redraws the same view and must not age the set.
+	 */
+	public void hdGroundFrameBegin() {
+		this.hdMaterialMap.beginFrame();
+	}
+
+	/** How many page cells have been recycled for a newer material. */
+	public int hdGroundAtlasEvictions() {
+		return this.hdMaterialMap.evictions();
+	}
+
+	/**
+	 * How many atlas textures exist right now: the page and the id map, one
+	 * pair per build, one pair retired per build after the first. It is 2 for
+	 * the life of a session however many materials arrive - a total that grows
+	 * with the streaming world would mean a retired page is never released.
+	 */
+	public int hdGroundAtlasTextures() {
+		return (int) (2L * (this.hdGroundPageBuilds - this.hdGroundPageDisposals));
+	}
+
+	/**
+	 * Builds the mesh's per-tile material map texture; one per mesh, on first draw.
+	 *
+	 * <p>Like the page, this texture binds itself while being built, and the mesh
+	 * is built from inside the ground draw after the layer's material texture is
+	 * bound. The material unit is restored so the first frame that builds the
+	 * tile map does not draw with the map in place of the material.
+	 */
+	public OpenGl2DTexture hdGroundTileMaterials(HdTileMaterialMap materials) {
+		if (materials == null) {
+			return null;
+		}
+		@Pc(1) Class6 materialTexture = this.aClass6Array1[0];
+		@Pc(2) OpenGl2DTexture texture = new OpenGl2DTexture(this, 3553, 6408, HdTileMaterialMap.SIZE,
+			HdTileMaterialMap.SIZE, false, materials.bytes(), 6408, false);
+		this.method1936(0);
+		this.setActiveTexture(materialTexture);
+		return texture;
+	}
+
+	/**
+	 * This frame's environment light, read from the state the stock renderer
+	 * already holds: the sky/fog colour {@code UA} stored, the level ambient
+	 * {@code B} stored, and the camera the scene placed this frame.
+	 *
+	 * <p>Nothing here is a new source. A region's environment reaches these
+	 * fields through {@code Class10.method127} ({@code B} and {@code scaleHeight})
+	 * and {@code FixedFunctionSpecularPass.method4231} ({@code UA}), so the
+	 * snapshot moves with the map the player is standing in and with the hour,
+	 * exactly as the stock lights do.
+	 *
+	 * <p>The eye-space up axis is {@code rotX(180) * view}'s image of the world's
+	 * y axis: the scene loads that flip before the camera for models and terrain
+	 * alike, so one direction serves both passes. {@code method5161} hands back a
+	 * shared scratch array, so the three components are read immediately.
+	 */
+	private HdEnvironmentLight hdEnvironmentLight() {
+		if (!HdEnvironmentLight.requested() || this.aClass31_Sub1_4 == null) {
+			return HdEnvironmentLight.OFF;
+		}
+		@Pc(3) float[] view = this.aClass31_Sub1_4.method5161();
+		return HdEnvironmentLight.of(this.anInt2302, this.sunBrightness, view[4], -view[5], -view[6]);
+	}
+
+	/**
+	 * This frame's shadow binding, or null when the row is off, the map was never
+	 * built, or the map has no pass yet. Null is the pre-shadow path: the
+	 * lighting shader then samples nothing and draws exactly as it did before.
+	 */
+	private ShadowBinding hdShadowBinding() {
+		@Pc(3) SunShadowMap map = this.sunShadow;
+		if (map == null || !map.hasFrame() || !SunShadowGate.requested()) {
+			return null;
+		}
+		return map.binding(SunShadowGate.pcfRadius(HdSettings.value(HdFeature.LIGHTING_DETAIL)));
+	}
+
+	/**
+	 * 592HD seam: rebuilds the sun's shadow map for this frame and leaves the
+	 * context inside the depth pass. The caller draws the casters with the
+	 * toolkit's ordinary model calls - colour writes are off and the light's clip
+	 * matrix is loaded - then calls {@link #hdSunShadowEnd()}. Returns false when
+	 * the Sun shadows row is off or the target could not be created, in which
+	 * case nothing was changed and the caller must not draw into it.
+	 *
+	 * <p>The volume is explicit: the caller names the centre and half-extent, so
+	 * the scene decides how much of the world the map covers rather than this
+	 * method guessing from the camera's far plane (a 3584-unit volume at 2048
+	 * would be 1.75 units per texel).
+	 */
+	public boolean hdSunShadowBegin(@OriginalArg(0) float centreX, @OriginalArg(1) float centreY,
+			@OriginalArg(2) float centreZ, @OriginalArg(3) float radius) {
+		if (!SunShadowGate.requested()) {
+			return false;
+		}
+		if (this.sunShadow == null) {
+			this.sunShadow = new SunShadowMap();
+		}
+		if (!this.sunShadow.prepare(SunShadowGate.resolution(HdSettings.value(HdFeature.SHADOW_MAP)))) {
+			return false;
+		}
+		return this.sunShadow.beginPass(this.sunDirection[0], this.sunDirection[1], this.sunDirection[2],
+			centreX, centreY, centreZ, radius);
+	}
+
+	/** 592HD seam: ends the depth pass and restores every piece of GL state it touched. */
+	public void hdSunShadowEnd() {
+		if (this.sunShadow != null) {
+			this.sunShadow.endPass();
+		}
+		// The pass restored the scene's texture state, but the casters' last
+		// material is still in the toolkit's cache. Forget it, or the next
+		// scene draw of that material skips the rebind and samples whatever
+		// the pass left behind.
+		this.hdShadowPassEnded();
+	}
+
+	/** 592HD seam: the shadow target, or null before the first pass. */
+	public SunShadowMap hdSunShadow() {
+		return this.sunShadow;
+	}
+
+	/**
+	 * 592HD seam: one frame's sun shadow work, exactly as the scene renderer
+	 * calls it - before the world is drawn for that frame.
+	 *
+	 * <p>This is the whole integration: the renderer supplies the sun (the
+	 * toolkit already has it), the centre and half-extent of the volume the map
+	 * must cover, and a callback that draws the casters with its ordinary model
+	 * and ground calls. Everything else - the row, the resolution, the target,
+	 * the state sandwich, the counters - is this side's.
+	 *
+	 * <p>Returns false, having touched no GL state, when 592HD, per-pixel
+	 * lighting or the Sun shadows row is off, or when the target could not be
+	 * created. The casters are never called in that case, so the stock draw sees
+	 * exactly the frame it saw before this stage existed.
+	 */
+	public boolean hdSunShadowFrame(@OriginalArg(0) float centreX, @OriginalArg(1) float centreY,
+			@OriginalArg(2) float centreZ, @OriginalArg(3) float radius,
+			@OriginalArg(4) SunShadowFrame.Casters casters) {
+		if (this.sunShadow == null && SunShadowGate.requested()) {
+			this.sunShadow = new SunShadowMap();
+		}
+		boolean ran = this.sunShadowFrame.render(this.sunShadow, casters, HdSettings.isEnabled(),
+			HdSettings.value(HdFeature.PER_PIXEL_LIGHTING) != 0, HdSettings.value(HdFeature.SHADOW_MAP),
+			this.sunDirection[0], this.sunDirection[1], this.sunDirection[2],
+			centreX, centreY, centreZ, radius);
+		if (ran) {
+			this.hdShadowPassEnded();
+		}
+		return ran;
+	}
+
+	/**
+	 * 592HD seam: the same frame, with the scene's casters instead of a callback.
+	 *
+	 * <p>Each caster's model matrix is applied with {@code glPushMatrix} +
+	 * {@code glMultMatrixf} around its own draw and popped straight after, so the
+	 * pass's modelview is the identity plus one object at a time and never the
+	 * world's camera. That is the whole of per-object placement: a model that
+	 * draws in its own local space lands where the renderer said it sits, and a
+	 * model whose draw composes its own matrix is registered with
+	 * {@link ShadowCaster#of(ShadowCaster.Draw)} and left alone.
+	 *
+	 * <p>The set is walked only from inside the pass, so with 592HD, per-pixel
+	 * lighting or the Sun shadows row off no caster is touched and no GL call is
+	 * issued - not even the matrix push.
+	 */
+	public boolean hdSunShadowFrame(@OriginalArg(0) float centreX, @OriginalArg(1) float centreY,
+			@OriginalArg(2) float centreZ, @OriginalArg(3) float radius,
+			@OriginalArg(4) ShadowCasterSet casters) {
+		if (this.sunShadow == null && SunShadowGate.requested()) {
+			this.sunShadow = new SunShadowMap();
+		}
+		this.hdShadowCasters = 0L;
+		this.hdShadowMaterialBinds = 0L;
+		boolean ran;
+		if (casters == null) {
+			ran = this.sunShadowFrame.render(this.sunShadow, null, HdSettings.isEnabled(),
+				HdSettings.value(HdFeature.PER_PIXEL_LIGHTING) != 0,
+				HdSettings.value(HdFeature.SHADOW_MAP), this.sunDirection[0], this.sunDirection[1],
+				this.sunDirection[2], centreX, centreY, centreZ, radius);
+		} else {
+			ran = this.sunShadowFrame.render(this.sunShadow, new SunShadowFrame.Casters() {
+
+				@Override
+				public void drawCasters() {
+					GlToolkit.this.hdDrawShadowCasters(casters);
+				}
+			}, HdSettings.isEnabled(), HdSettings.value(HdFeature.PER_PIXEL_LIGHTING) != 0,
+				HdSettings.value(HdFeature.SHADOW_MAP), this.sunDirection[0], this.sunDirection[1],
+				this.sunDirection[2], centreX, centreY, centreZ, radius);
+		}
+		if (ran) {
+			this.hdShadowPassEnded();
+		}
+		return ran;
+	}
+
+	/**
+	 * Puts the toolkit's caches back in charge after the sun's depth pass.
+	 *
+	 * <p>The pass is the one draw that owns the write masks: it turns depth
+	 * writes on and colour writes off, and restores them by hand on the way out
+	 * because the {@code jaggl} wrapper has no read-back for either. Nothing in
+	 * that restore tells this toolkit, so its cache could still claim the
+	 * frame's "no depth writes" - and the next draw that asks for exactly that
+	 * value ({@code method1911(false)}, which every 2D pass asks for) issues no
+	 * GL call and inherits the pass's mask for the rest of the frame.
+	 *
+	 * <p>So the caches are made true again here rather than at each draw: the
+	 * depth mask is re-asserted from {@code aBoolean200} through the same method
+	 * that owns it, and the colour mask the pass forced on is re-asserted when
+	 * the cache has claimed it. The material the pass bound last is forgotten
+	 * for the same reason: the pass restored the scene's texture state, so the
+	 * cache no longer describes that unit.
+	 */
+	private void hdShadowPassEnded() {
+		this.anInt2314 = -1;
+		this.method1976();
+		if (this.aBoolean195) {
+			OpenGL.glColorMask(true, true, true, true);
+		}
+	}
+
+	/** Draws every caster into the open depth pass, one matrix push each. */
+	private void hdDrawShadowCasters(@OriginalArg(0) ShadowCasterSet casters) {
+		for (int index = 0; index < casters.size(); index++) {
+			@Pc(5) ShadowCaster caster = casters.get(index);
+			caster.modelToScene(this.hdShadowMatrix);
+			OpenGL.glPushMatrix();
+			OpenGL.glMultMatrixf(this.hdShadowMatrix, 0);
+			caster.draw().draw();
+			OpenGL.glPopMatrix();
+			this.hdShadowCasters++;
+		}
+	}
+
+	/** 592HD seam: casters submitted by the most recent sun shadow frame call. */
+	public long hdShadowCastersSubmitted() {
+		return this.hdShadowCasters;
+	}
+
+	/** 592HD seam: the scene renderer's per-frame caster submission. */
+	public SunShadowSubmission hdShadowSubmission() {
+		return this.hdShadowSubmission;
+	}
+
+	/**
+	 * 592HD seam: the world draw is starting, so every model it submits is a
+	 * sun-shadow caster for the next pass.
+	 *
+	 * <p>Off when 592HD, per-pixel lighting or the Sun shadows row is off, so
+	 * the draw path records nothing and touches no GL. Paired with
+	 * {@link #hdShadowSceneEnd()}; a frame that records and never ends simply
+	 * keeps recording, which the cap in the submission bounds.
+	 */
+	public void hdShadowSceneBegin() {
+		this.hdShadowCollecting = SunShadowGate.requested();
+	}
+
+	/** 592HD seam: the world draw has finished; stop recording casters. */
+	public void hdShadowSceneEnd() {
+		this.hdShadowCollecting = false;
+	}
+
+	/**
+	 * 592HD seam: records one model the world draw is about to draw, with the
+	 * placement matrix the draw uses.
+	 *
+	 * <p>Called from the scene's model path, which may run on a renderer
+	 * thread; the submission takes the lock and no GL is touched here. A model
+	 * drawn more than once in a frame is recorded more than once - the pass is a
+	 * depth test, so a duplicate is only cost, never a wrong pixel.
+	 */
+	public void hdRecordShadowCaster(@OriginalArg(0) GlModel model, @OriginalArg(1) JavaMatrix modelToScene) {
+		if (!this.hdShadowCollecting || model == null || modelToScene == null) {
+			return;
+		}
+		if (this.sunShadow != null && this.sunShadow.inPass()) {
+			return;
+		}
+		this.hdShadowSubmission.recordModel(model, modelToScene.method5161());
+	}
+
+	/**
+	 * 592HD seam: the fixed-function state a caster needs inside the depth pass.
+	 *
+	 * <p>Only positions matter there, so this drops the lit program and the
+	 * material texture. It deliberately does not touch the matrices or the
+	 * viewport - the pass owns those, and {@code method1977} would reset them.
+	 * The pass's own attribute push restores the enables on the way out.
+	 */
+	public void hdBeginShadowCasterDraw() {
+		this.hdLighting.unbind();
+		this.setActiveTexture(null);
+		// The screen draw's material cache still names the last material it
+		// bound, but the unit was just cleared. Forgetting it makes a cut-out
+		// caster's first group bind again instead of drawing with no texture at
+		// all, and keeps the next scene draw from skipping a rebind that the
+		// cleared unit now needs.
+		this.anInt2314 = -1;
+	}
+
+	/** True while the open sun pass is alpha-testing casters. */
+	public boolean hdShadowCutoutActive() {
+		return this.sunShadow != null && this.sunShadow.cutoutActive();
+	}
+
+	/**
+	 * Binds one face group's material for a cut-out caster, or unbinds when
+	 * {@code material} is negative.
+	 *
+	 * <p>This is the screen draw's own material path, so the sampled texture, its
+	 * alpha channel and its combine mode are the ones the player sees. It is only
+	 * reached from a cut-out pass: with the row off the depth draw never binds a
+	 * texture, which is what keeps the solid path at its old cost.
+	 */
+	public void hdBindShadowCasterMaterial(@OriginalArg(0) int material) {
+		if (material >= 0 && this.anInt2314 != material) {
+			this.hdShadowMaterialBinds++;
+		}
+		this.method1938(material, false);
+	}
+
+	/** Material textures bound by the last frame's casters. */
+	public long hdShadowMaterialBinds() {
+		return this.hdShadowMaterialBinds;
+	}
+
+	/** 592HD seam: the frame driver, so its counters can be read in a test. */
+	public SunShadowFrame hdSunShadowDriver() {
+		return this.sunShadowFrame;
+	}
+
+	/** 592HD seam: how many primitives the lighting program has drawn. */
+	public long hdLightingBinds() {
+		return this.hdLighting.binds();
+	}
+
+	/**
+	 * 592HD seam: how many caustics uploads the lighting program has issued. Zero
+	 * across a frame with the row off (or with no water over the tile) is the
+	 * proof that the off state makes no GL call at all.
+	 */
+	public long hdCausticsUploads() {
+		return this.hdLighting.causticsUploads();
+	}
+
+	/** How many reflection uploads the lighting program has issued; zero means the row never drew. */
+	public long hdReflectionUploads() {
+		return this.hdLighting.reflectionUploads();
+	}
+
+	/**
+	 * 592HD seam: how many vegetation primitives were submitted for displacement
+	 * - a plant drawn while at least one sway row is on. Zero says the rig never
+	 * reached the rows; non-zero with no visible motion says the displacement
+	 * itself is the problem, which is the distinction a pixel proof needs.
+	 */
+	public long hdSwayBinds() {
+		return this.hdSwayBinds;
+	}
+
+	/**
+	 * 592HD seam: the counters that say whether the shadow and lighting paths
+	 * are actually running this session. One line, for the console or the log.
+	 */
+	public String hdLightingStats() {
+		// recorded is the world draw's own number: it says the scene fed the
+		// submission, which drawn alone cannot distinguish from a stale map.
+		return this.sunShadowFrame.stats() + "; sun casters drawn=" + this.hdShadowCasters
+			+ "; recorded=" + this.hdShadowSubmission.recorded()
+			+ "; model binds=" + this.hdLighting.binds();
+	}
+
+	/** 592HD seam: returns the context to fixed function after the draw. */
+	public void hdEndModelLighting() {
+		hdReleaseShadowTexture();
+		if (this.hdReflectionCubeBound) {
+			hdUnbindReflectionCube();
+		}
+		this.hdLighting.unbind();
+		hdReleaseGroundTextures();
+	}
+
+	/**
+	 * Leaves the three ground units empty and disabled, the way the stock frame
+	 * has them.
+	 *
+	 * <p>A ground draw binds the page, the material map and the tile map on
+	 * their own units. Before this it also left them there once the draw ended,
+	 * so the frame carried four textures no stock pass ever binds - the interface
+	 * that follows and every later pass ran beside a bound world page. Nothing
+	 * sampled them, but they are state the frame does not have without 592HD, and
+	 * a draw that enables a 2D target on one of those units without binding
+	 * inherits whatever is on it. Released with the shadow map, at the end of the
+	 * draw that bound them, and only when that draw bound them: a model draw pays
+	 * one flag test and no GL call.
+	 */
+	private void hdReleaseGroundTextures() {
+		if (!this.hdGroundUnitsBound) {
+			return;
+		}
+		for (int unit = HdShaderSource.SAMPLER_UNIT_WORLD_TEXTURES;
+				unit <= HdShaderSource.SAMPLER_UNIT_TILE_MATERIALS; unit++) {
+			this.method1936(unit);
+			this.setActiveTexture(null);
+		}
+		this.method1936(0);
+		this.hdGroundUnitsBound = false;
+	}
+
+	/** Leaves the reflection unit the way the frame found it. */
+	private void hdUnbindReflectionCube() {
+		this.method1936(HdShaderSource.SAMPLER_UNIT_REFLECTION);
+		this.setActiveTexture(null);
+		this.method1936(0);
+		this.hdReflectionCubeBound = false;
+	}
+
+	/** 592HD seam: true when the lighting program linked on this context. */
+	public boolean hdLightingAvailable() {
+		return this.hdLighting.available();
+	}
+
+	/**
+	 * 592HD seam: starts an HD water draw. Called from {@link #AA} where the
+	 * stock water effect would have been selected.
+	 *
+	 * <p>The region itself has no material, so it starts as calm water; the
+	 * material bind that follows asks for the type its effect slot names through
+	 * {@link #hdWaterMaterial(int)}. Returns false when HD water is off,
+	 * unavailable, or the row is off, in which case the caller runs the stock
+	 * selection untouched.
+	 */
+	public boolean hdBeginWater() {
+		boolean bound = this.hdWater.begin(HdWaterRequest.still(HdWaterGate.requested(),
+			HdWaterGate.custom(), HdWaterTime.seconds()));
+		if (bound && !this.hdWaterReported) {
+			this.hdWaterReported = true;
+			System.out.println("[592HD] " + hdWaterStats());
+		}
+		return bound;
+	}
+
+	/**
+	 * 592HD seam: a water material is bound for the face groups that follow.
+	 *
+	 * <p>This is where the water type is decided. A material whose stock effect
+	 * slot is {@link HdWaterGate#REFLECTIVE_SLOT} is the reflective water type,
+	 * the one the stock manager silently downgrades because that effect reports
+	 * itself unsupported; when the toolkit also has the environment cube the
+	 * stock cube effects sample, the draw switches to the program that reflects
+	 * it. A material whose slot is {@link HdWaterGate#BREAKING_SLOT} is the
+	 * breaking water type: the same cube, and the surface is driven by the
+	 * material's own two effect-parameter fields, decoded by
+	 * {@link HdWaterBreaking} exactly as the stock effect decodes them.
+	 * Everything else stays on the calm program, which is byte-identical to the
+	 * draw before this pass.
+	 *
+	 * <p>Nothing happens while no HD water draw is open, so a stray call from
+	 * another material bind cannot reach GL.
+	 */
+	public void hdWaterMaterial(int material) {
+		if (!this.hdWater.bound()) {
+			return;
+		}
+		MaterialType type = material < 0 || super.materialProvider == null ? null
+			: super.materialProvider.getMetrics(material);
+		boolean reflective = type != null && HdWaterGate.isReflectiveMaterial(type.aByte89);
+		boolean breaking = type != null && HdWaterGate.isBreakingMaterial(type.aByte89);
+		GlCubeTexture environment = type != null && HdWaterGate.samplesEnvironment(type.aByte89)
+			? this.method1946() : null;
+		if (environment != null) {
+			// Unit 1, where the stock cube effects put their environment map.
+			this.method1936(HdWaterSource.ENVIRONMENT_UNIT);
+			this.setActiveTexture(environment);
+			this.method1936(0);
+			this.hdWaterCubeBound = true;
+		}
+		HdWaterRequest request = HdWaterRequest.current(HdWaterGate.requested(), HdWaterGate.custom(), reflective,
+			environment != null, HdWaterTime.seconds());
+		if (breaking) {
+			request = request.withBreaking(HdWaterBreaking.of(type.aByte88, type.anInt6933));
+		}
+		this.hdWater.select(request);
+	}
+
+	/** True while HD water owns the program, so nothing else may bind over it. */
+	public boolean hdWaterActive() {
+		return this.hdWater.bound();
+	}
+
+	/**
+	 * 592HD seam: ends an HD water draw and returns to fixed function, and
+	 * leaves the environment unit the way it found it - the stock effects bind
+	 * their own cube there and must not inherit a stale reflection.
+	 */
+	public void hdEndWater() {
+		if (this.hdWaterCubeBound) {
+			this.method1936(HdWaterSource.ENVIRONMENT_UNIT);
+			this.setActiveTexture(null);
+			this.method1936(0);
+			this.hdWaterCubeBound = false;
+		}
+		this.hdWater.unbind();
+	}
+
+	/** How many water draws have used the HD program. */
+	public long hdWaterBinds() {
+		return this.hdWater.binds();
+	}
+
+	/** How many of those draws ran the custom surface. */
+	public long hdWaterCustomBinds() {
+		return this.hdWater.customBinds();
+	}
+
+	/** How many of those draws sampled the environment cube. */
+	public long hdWaterReflectiveBinds() {
+		return this.hdWater.reflectiveBinds();
+	}
+
+	/** How many of those draws ran the breaking water type's surface. */
+	public long hdWaterBreakingBinds() {
+		return this.hdWater.breakingBinds();
+	}
+
+	/** Test hook: the wave amplitude, so a flat surface can be rendered. */
+	public void hdWaterFlowForTest(float amplitude) {
+		this.hdWater.setFlowForTest(amplitude);
+	}
+
+	/** One line: does the water stage compile and run on this context. */
+	public String hdWaterStats() {
+		return "hd water: available=" + this.hdWater.available()
+			+ " reflective=" + this.hdWater.reflectiveAvailable() + " draws=" + this.hdWater.binds()
+			+ " reflectiveDraws=" + this.hdWater.reflectiveBinds()
+			+ (this.hdWater.logLine().isEmpty() ? "" : " [" + this.hdWater.logLine() + "]");
+	}
+
+	/**
+	 * 592HD seam: the sky dome for one frame, drawn before any world geometry.
+	 *
+	 * <p>This client has no sky draw at all, so this is the pass itself rather
+	 * than a hook into one: the scene renderer calls it once per frame with the
+	 * 3D viewport current and the camera already placed (the same camera
+	 * {@link #method1952()} builds the modelview from), then draws the world over
+	 * it. The dome writes no depth, so it is a background: geometry covers it
+	 * exactly as it would cover the clear colour.
+	 *
+	 * <p>Everything the pass samples is state this toolkit already holds - the
+	 * sun direction and colour {@link #scaleHeight} last stored, the fog colour
+	 * {@link #UA} last stored, this frame's projection, and the camera - so the
+	 * sky cannot drift from the light the world is drawn with. The colours
+	 * themselves are {@link HdSkyColours}'s, with the day/night clock from
+	 * {@link HdSkyTime}.
+	 *
+	 * <p>Returns false, having made no GL call, when 592HD or the Sky row is off,
+	 * during the sun's depth pass, while HD water owns the program, or before a
+	 * camera exists: the stock frame is then exactly the frame it always was.
+	 */
+	public boolean hdSkyFrame() {
+		if (!SkyGate.skyRequested()) {
+			return false;
+		}
+		if (this.aClass31_Sub1_4 == null) {
+			return false;
+		}
+		// Inside the sun's depth pass only depth matters, and the water pass
+		// owns the program while it draws.
+		if (this.sunShadow != null && this.sunShadow.inPass()) {
+			return false;
+		}
+		if (this.hdWater.bound()) {
+			return false;
+		}
+		return this.hdSky.draw(this.projectionMatrix, this.aClass31_Sub1_4.method5161(), hdSkyColours(),
+			this.sunDirection);
+	}
+
+	/**
+	 * This frame's day/night factors: the one place the toolkit asks the hour
+	 * what it means for the light.
+	 *
+	 * <p>Off - 592HD disabled or the Day and night row off - is
+	 * {@link HdDayNight#IDENTITY}, so every caller multiplies by 1.0F and the
+	 * stock frame is bit-identical rather than merely close.
+	 *
+	 * <p>The sun's elevation comes from the direction the lighting is already
+	 * using, negated because this world's y axis points down; the clock supplies
+	 * the phase. Neither the direction nor any matrix is ever written from the
+	 * clock here - only colours and strengths are.
+	 */
+	private HdDayNight.Factors hdDayNight() {
+		return hdDayNight(this.sunDirection[0], this.sunDirection[1], this.sunDirection[2]);
+	}
+
+	/**
+	 * The same factors for a sun the caller is about to store.
+	 *
+	 * <p>{@code scaleHeight} uses this rather than the stored direction: the
+	 * colour it writes has to match the direction it writes in the same call, or
+	 * one frame's stale elevation decides the other's light.
+	 */
+	private HdDayNight.Factors hdDayNight(float sunX, float sunY, float sunZ) {
+		@Pc(2) float length = (float) Math.sqrt((double) (sunX * sunX + sunY * sunY + sunZ * sunZ));
+		// A nil direction is "the scene has not set a sun yet", which is a day
+		// frame: reading it as a sun on the horizon would dim the first frame of
+		// every session.
+		@Pc(4) float elevation = length <= 1.0e-6F ? 1.0F : -sunY / length;
+		return HdDayNight.factors(HdSettings.isEnabled(), SkyGate.dayNightRequested(), elevation,
+			HdSkyTime.phase());
+	}
+
+	/**
+	 * The four colours this frame's sky is made of, or null when the rows leave no
+	 * sky. Public so a test can predict a pixel from the same state the pass
+	 * uploads, instead of from a recorded frame.
+	 */
+	public HdSkyColours hdSkyColours() {
+		if (!SkyGate.skyRequested()) {
+			return null;
+		}
+		// Both colours are the effective ones - scaleHeight and UA stored them
+		// already dimmed for this frame - so the dome inherits the world's level
+		// instead of computing a second one.
+		@Pc(4) int fogColour = this.anInt2302 < 0 ? 0 : this.anInt2302;
+		@Pc(6) int sunColour = this.sunColorRgb < 0 ? 0xFFFFFF : this.sunColorRgb;
+		// This world's y axis points down, so the sun's height above the horizon
+		// is the negated y of the direction the lighting is using.
+		@Pc(8) float sunElevation = -this.sunDirection[1];
+		return HdSkyColours.resolve(HdSettings.isEnabled(), HdSettings.value(HdFeature.SKY) != 0,
+			SkyGate.dayNightRequested(), sunElevation, HdSkyTime.phase(), sunColour, fogColour);
+	}
+
+	/**
+	 * This frame's projection, as the scene's passes see it. A pass that casts
+	 * rays per pixel needs the same matrix the geometry was clipped by; a copy,
+	 * so a caller cannot rewrite the scene's projection.
+	 */
+	public float[] hdProjection() {
+		return this.projectionMatrix.clone();
+	}
+
+	/**
+	 * 592HD seam: the client is starting a top-down map bake. Paired with
+	 * {@link #hdMapBakeEnd()} around the bake's own draw calls; the per-pixel
+	 * lighting seam declines while it is set, and nothing else changes.
+	 */
+	public void hdMapBakeBegin() {
+		this.hdMapBake = true;
+	}
+
+	/** 592HD seam: the map bake is over; the scene's seam is live again. */
+	public void hdMapBakeEnd() {
+		this.hdMapBake = false;
+	}
+
+	/** How many skies the pass has drawn; zero means the seam is dead. */
+	public long hdSkyDraws() {
+		return this.hdSky.draws();
+	}
+
+	/** One line: does the sky stage compile and run on this context. */
+	public String hdSkyStats() {
+		return "hd sky: available=" + this.hdSky.available() + " draws=" + this.hdSky.draws()
+			+ (this.hdSky.logLine().isEmpty() ? "" : " [" + this.hdSky.logLine() + "]");
+	}
+
+	/**
+	 * Whether the stock path is drawing this frame with fog enabled, using the
+	 * same rule that enables {@code GL_FOG} in {@link #method1968()}. The 592HD
+	 * gate needs it because the lighting shader always applies the fog band.
+	 */
+	private boolean fogActive() {
+		return this.aBoolean197 && this.anInt2315 >= 0 | this.aBoolean192;
 	}
 
 	@OriginalMember(owner = "client!fd", name = "a", descriptor = "(ZI)V")
@@ -1226,6 +2628,10 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "t", descriptor = "()V")
 	@Override
 	public void method4278() {
+		// The compositor's own pass for a component that captured the screen.
+		// 592HD's screen-space rows are not applied here: they belong to the
+		// finished frame, which is {@link #method4247()} - see
+		// {@link #hdPostFrame()}.
 		this.framebufferCompositor.compositeEffects();
 	}
 
@@ -1437,7 +2843,16 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 
 	@OriginalMember(owner = "client!fd", name = "a", descriptor = "(ZBIZ)V")
 	public void method1926(@OriginalArg(0) boolean arg0, @OriginalArg(2) int arg1, @OriginalArg(3) boolean arg2) {
-		if (this.anInt2314 != arg1) {
+		boolean hdModelBind = this.hdModelMaterialBind;
+		this.hdModelMaterialBind = false;
+		if (this.hdWaterActive()) {
+			// 592HD: the water type is the material's, so it is resolved on every
+			// bind rather than only when the material changes - a reflective lake
+			// must re-read the environment cube every frame, and the cube object
+			// is replaced when the sky is repainted.
+			this.hdWaterMaterial(arg1);
+		}
+		if (this.anInt2314 != arg1 || hdReflectionStale(arg1, hdModelBind)) {
 			if (arg1 < 0) {
 				this.method1917();
 				this.setActiveTexture(null);
@@ -1456,12 +2871,25 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 					this.method1963((float) (local19.aByte93 * (this.anInt2274 % local39)) / (float) local39, (float) (local19.aByte91 * (this.anInt2274 % local39)) / (float) local39, 0.0F);
 				}
 				if (this.aBoolean192) {
-					this.effectManager.method5318(arg2, arg0, 3);
+					// HD water owns the program already; enabling the stock ARB
+					// water program here would leave two programs enabled at once.
+					if (!this.hdWaterActive()) {
+						this.effectManager.method5318(arg2, arg0, 3);
+					}
 					this.setActiveTexture(local13);
 					this.method1900(local19.anInt6934);
+					this.hdMaterialSlot = -1;
 				} else {
-					this.effectManager.method5318(arg2, arg0, local19.aByte89);
-					this.effectManager.method5319(local19.anInt6933, local19.aByte88);
+					// 592HD: a material the client already draws reflectively can be taken
+					// from the stock specular effect and drawn by the lighting program,
+					// which samples the same environment cube instead. Off, or a
+					// material that is not the reflective type, keeps the stock pass.
+					boolean hdReflection = hdModelBind && hdReflectionOwns(local19);
+					this.effectManager.method5318(arg2, arg0, hdReflection ? 0 : local19.aByte89);
+					if (!hdReflection) {
+						this.effectManager.method5319(local19.anInt6933, local19.aByte88);
+					}
+					this.hdMaterialSlot = local19.aByte89;
 					if (!this.effectManager.method5316(local13, local19.anInt6934)) {
 						this.setActiveTexture(local13);
 						this.method1900(local19.anInt6934);
@@ -1490,10 +2918,17 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "T", descriptor = "(IFFFFF)V")
 	@Override
 	public void scaleHeight(@OriginalArg(0) int arg0, @OriginalArg(1) float arg1, @OriginalArg(2) float arg2, @OriginalArg(3) float arg3, @OriginalArg(4) float arg4, @OriginalArg(5) float arg5) {
-		@Pc(11) boolean local11 = this.sunColorRgb != arg0;
-		if (local11 || arg1 != this.aFloat73 || arg2 != this.aFloat65) {
-			this.aFloat65 = arg2;
-			this.sunColorRgb = arg0;
+		// The hour dims the sun's colour and the fill's share of it; the
+		// intensity in arg1 stays the caller's. Everything downstream - the
+		// GL lights, the baked vertex light in GlGround/GlModel, the sky's
+		// disc - reads the value stored here, so they cannot disagree.
+		@Pc(1) HdDayNight.Factors dayNight = hdDayNight(arg3, arg4, arg5);
+		@Pc(3) int colour = dayNight.sunColour(arg0);
+		@Pc(5) float fill = arg2 * dayNight.fill();
+		@Pc(11) boolean local11 = this.sunColorRgb != colour;
+		if (local11 || arg1 != this.aFloat73 || fill != this.aFloat65) {
+			this.aFloat65 = fill;
+			this.sunColorRgb = colour;
 			this.aFloat73 = arg1;
 			if (local11) {
 				this.aFloat58 = (float) (this.sunColorRgb & 0xFF00) / 65280.0F;
@@ -1735,8 +3170,14 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.anInt2317 = arg2;
 		this.anInt2287 = offsetY;
 		this.aBoolean192 = true;
-		this.effectManager.method5318(false, false, 3);
-		this.effectManager.waterEffect.method5380();
+		// 592HD: this is the one place the stock water effect is selected for a
+		// water region. The HD program takes its place when the "592HD water"
+		// row asks for it; otherwise the stock selection and its program run
+		// untouched.
+		if (!this.hdBeginWater()) {
+			this.effectManager.method5318(false, false, 3);
+			this.effectManager.waterEffect.method5380();
+		}
 		this.updateFog();
 		this.method1968();
 	}
@@ -1895,6 +3336,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@Override
 	public void l() {
 		this.aBoolean192 = false;
+		this.hdEndWater();
 		this.effectManager.method5318(false, false, 0);
 		this.updateFog();
 		this.method1968();
@@ -1918,6 +3360,9 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 
 	@OriginalMember(owner = "client!fd", name = "a", descriptor = "(ZIZ)V")
 	public void method1938(@OriginalArg(1) int arg0, @OriginalArg(2) boolean arg1) {
+		// Only this entry is the model draw path; the terrain calls method1926
+		// directly and keeps its own effect selection untouched.
+		this.hdModelMaterialBind = true;
 		this.method1926(arg1, arg0, true);
 	}
 
@@ -2061,7 +3506,12 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "a", descriptor = "(ILclient!tu;)V")
 	public void method1948(@OriginalArg(1) JavaMatrix arg0) {
 		OpenGL.glPushMatrix();
-		OpenGL.glMultMatrixf(arg0.method5161(), 0);
+		float[] matrix = arg0.method5161();
+		OpenGL.glMultMatrixf(matrix, 0);
+		// 592HD: the model's place in the scene. The vertex buffer is
+		// model-local, so the lighting shader composes this to get a scene
+		// position for the shadow map and the occlusion kernel.
+		System.arraycopy(matrix, 0, this.hdModelMatrix, 0, this.hdModelMatrix.length);
 	}
 
 	@OriginalMember(owner = "client!fd", name = "j", descriptor = "()Z")
@@ -2115,6 +3565,16 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "c", descriptor = "()V")
 	@Override
 	protected void stop() {
+		// The 592HD program belongs to this context: delete it while the context
+		// is still current, before the surface and context are released.
+		this.hdLighting.shutdown();
+		this.hdWater.shutdown();
+		this.hdPost.shutdown();
+		this.hdSky.shutdown();
+		if (this.sunShadow != null) {
+			this.sunShadow.release();
+			this.sunShadow = null;
+		}
 		for (@Pc(6) Country local6 = this.heapManager.method4140(); local6 != null; local6 = this.heapManager.method4144()) {
 			((GlMemoryPool) local6).deallocate();
 		}
@@ -2156,10 +3616,118 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "h", descriptor = "()V")
 	@Override
 	public void method4247() {
+		// 592HD: the last thing before the frame is presented, which is the
+		// only point that sees the world, the interface and any composition a
+		// component asked for. Off rows make this a no-op with no GL call.
+		this.hdPostFrame();
 		try {
 			this.anOpenGL1.swapBuffers();
 		} catch (@Pc(8) Exception local8) {
 		}
+	}
+
+	/**
+	 * 592HD seam: one frame's screen-space pass, resolved and applied to the
+	 * finished frame just before it is presented.
+	 *
+	 * <p>This is the frame's last pixel work, so it is the only place that sees
+	 * exactly what a screenshot would. Returns false, having issued nothing,
+	 * when no row is on or the program could not compile; the presented frame
+	 * is then the stock one.
+	 *
+	 * @return true when the pass was applied to this frame
+	 */
+	public boolean hdPostFrame() {
+		this.framebufferCompositor.compositeEffects();
+		if (this.aCanvas2 == null) {
+			return false;
+		}
+		return this.hdPost.apply(0, 0, this.aCanvas2.getWidth(), this.aCanvas2.getHeight(),
+			HdPostParams.fromSettings());
+	}
+
+	/** How many frames the screen-space pass has been applied to. */
+	public long hdPostDraws() {
+		return this.hdPost.frames();
+	}
+
+	/** One line: has the frame-end screen-space pass run at all. */
+	public String hdPostStats() {
+		return "hd post: frames=" + this.hdPost.frames();
+	}
+
+	/**
+	 * What this toolkit's caches claim the fixed-function state is, in the shape
+	 * {@link HdGlState} compares against a real read-back.
+	 *
+	 * <p>The caches exist so a setter that is asked for the value GL already has
+	 * issues no call; that only works while they are true. This is the reading a
+	 * frame boundary is checked with: {@code HdGlState.actual().differences(
+	 * toolkit.hdGlState())} is empty exactly when no pass has moved GL behind the
+	 * cache's back.
+	 */
+	public HdGlState hdGlState() {
+		int blendSrc;
+		int blendDst;
+		// The same factors method1958 uploads for each mode, in the same order.
+		if (this.anInt2316 == 1) {
+			blendSrc = 770;
+			blendDst = 771;
+		} else if (this.anInt2316 == 2) {
+			blendSrc = 1;
+			blendDst = 1;
+		} else if (this.anInt2316 == 3) {
+			blendSrc = 774;
+			blendDst = 1;
+		} else {
+			blendSrc = 0;
+			blendDst = 0;
+		}
+		// Every unit, not just the active one: a pass binds on a numbered unit
+		// and restores the active unit, so a stale binding there is only visible
+		// from that unit's own index. Both targets are reported, because the
+		// cache holds a Class6 and its target - a cube the cache still names on
+		// a unit is a different claim from that unit being empty.
+		int[] textures = new int[HdGlState.UNITS];
+		int[] cubes = new int[HdGlState.UNITS];
+		if (this.aClass6Array1 != null) {
+			for (int unit = 0; unit < Math.min(HdGlState.UNITS, this.aClass6Array1.length); unit++) {
+				Class6 bound = this.aClass6Array1[unit];
+				if (bound == null) {
+					continue;
+				}
+				if (bound.anInt5441 == 34067) {
+					cubes[unit] = bound.method4186();
+				} else {
+					textures[unit] = bound.method4186();
+				}
+			}
+		}
+		if (this.hdShadowTextureName != 0) {
+			textures[HdShaderSource.SAMPLER_UNIT_SHADOW] = this.hdShadowTextureName;
+		}
+		return HdGlState.cached(blendSrc, blendDst, this.aBoolean216, this.hdAlphaFunc,
+			this.aBoolean203, this.hdDepthFunc,
+			this.aBoolean200 && this.depthBufferingEnabled,
+			// aBoolean195 records that the all-on mask was set, not that colour
+			// writes are off - an unset cache claims nothing.
+			this.aBoolean195 ? 1 : HdGlState.UNKNOWN, this.anInt2301, textures, cubes,
+			hdBoundProgram());
+	}
+
+	/**
+	 * The program an HD pass has bound right now, or 0 for fixed function.
+	 *
+	 * <p>Only two owners bind a program and keep it: the lighting pass and the
+	 * water pass, and the lighting gate refuses while water owns the draw, so at
+	 * most one of them claims. The sky and screen-space passes save the previous
+	 * program and put it back themselves, so they never appear here. Fixed
+	 * function is 0 rather than {@link HdGlState#UNKNOWN}: before any pass has
+	 * bound, and after every pass has unbound, zero is exactly what GL has.
+	 */
+	private int hdBoundProgram() {
+		int lighting = this.hdLighting.programName();
+		return lighting != 0 ? lighting : this.hdWater.programName();
 	}
 
 	@OriginalMember(owner = "client!fd", name = "GA", descriptor = "(IIII)V")
@@ -2172,7 +3740,12 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.anInt2317 = arg2;
 		this.anInt2287 = arg1;
 		this.anInt2293 = arg3;
-		this.effectManager.waterEffect.method5380();
+		// A water layer's own params: the stock effect re-binds its ARB program
+		// here, which would sit on top of the HD program. Only the stock path
+		// gets to do that.
+		if (!this.hdWaterActive()) {
+			this.effectManager.waterEffect.method5380();
+		}
 		this.updateFog();
 	}
 
@@ -2187,7 +3760,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		OpenGL.glLoadIdentity();
 		OpenGL.glRotatef(180.0F, 1.0F, 0.0F, 0.0F);
 		OpenGL.glMultMatrixf(this.aClass31_Sub1_4.method5161(), 0);
-		if (this.aBoolean192) {
+		if (this.aBoolean192 && !this.hdWaterActive()) {
 			this.effectManager.waterEffect.method5380();
 		}
 		this.method1914();
@@ -2443,9 +4016,23 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	private void updateFog() {
 		@Pc(23) int local23;
 		if (this.aBoolean192) {
-			OpenGL.glFogf(2915, 0.0F);
-			OpenGL.glFogf(2916, 1.0F);
-			local23 = this.anInt2287;
+			if (this.hdWaterActive()) {
+				// The 592HD water fragment applies the atmospheric band itself.
+				// The stock water mode's 0..1 fog is for its own ARB program and
+				// would flatten every HD water pixel to one fog colour, so while
+				// the HD program owns the draw the scene's band and colour are
+				// the ones GL carries - exactly the ones the rest of the frame
+				// fades into. Off, the stock values below run untouched.
+				OpenGL.glFogf(2915, this.aFloat59);
+				OpenGL.glFogf(2916, this.aFloat76);
+				local23 = this.anInt2302;
+			} else {
+				OpenGL.glFogf(2915, 0.0F);
+				OpenGL.glFogf(2916, 1.0F);
+				// Underwater fog is not the scene's fog colour, so it carries its
+				// own dimming; the band has to fade into night under water too.
+				local23 = hdDayNight().fogColour(this.anInt2287);
+			}
 		} else {
 			this.aFloat76 = (float) (this.anInt2312 - this.anInt2282) - this.aFloat57;
 			this.aFloat59 = this.aFloat76 - (float) this.anInt2315 * this.aFloat71;
@@ -2536,8 +4123,11 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "B", descriptor = "(F)V")
 	@Override
 	public void B(@OriginalArg(0) float brightness) {
-		if (this.sunBrightness != brightness) {
-			this.sunBrightness = brightness;
+		// The ambient level the world is lit to; the hour scales it, and the
+		// same field feeds GL's light model and the stock vertex lighting.
+		@Pc(1) float ambient = brightness * hdDayNight().ambient();
+		if (this.sunBrightness != ambient) {
+			this.sunBrightness = ambient;
 			this.method1961();
 		}
 	}
@@ -2579,11 +4169,16 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "UA", descriptor = "(III)V")
 	@Override
 	public void UA(@OriginalArg(0) int arg0, @OriginalArg(1) int arg1, @OriginalArg(2) int arg2) {
-		if (this.anInt2302 == arg0 && arg1 == this.anInt2315 && arg2 == this.anInt2282) {
+		// The hour dims the fog the world fades into. Storing the dimmed value
+		// is what makes the early-out below correct as the clock moves: the
+		// caller's colour is unchanged at midnight, the effective one is not,
+		// so the band is re-uploaded. The sky reads the same stored value.
+		@Pc(1) int colour = hdDayNight().fogColour(arg0);
+		if (this.anInt2302 == colour && arg1 == this.anInt2315 && arg2 == this.anInt2282) {
 			return;
 		}
 		this.anInt2282 = arg2;
-		this.anInt2302 = arg0;
+		this.anInt2302 = colour;
 		this.anInt2315 = arg1;
 		if (!this.aBoolean192) {
 			this.updateFog();
@@ -2671,7 +4266,13 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	private void method1964() {
 		this.aClass31_Sub1_4 = new JavaMatrix();
 		this.aClass31_Sub1_3 = new JavaMatrix();
-		this.aClass6Array1 = new Class6[this.anInt2306];
+		// The lit program samples six units (base, shadow, reflection and the
+		// ground atlas' three). This cache is per image unit, and the stock count
+		// is the fixed-function combiner count - four on most drivers - which is
+		// smaller than the image-unit space glActiveTexture addresses, so size it
+		// to the highest sampler the shader names.
+		this.aClass6Array1 = new Class6[Math.max(this.anInt2306,
+			HdShaderSource.SAMPLER_UNIT_TILE_MATERIALS + 1)];
 		this.texture2d = new OpenGl2DTexture(this, 3553, 6408, 1, 1);
 		this.aClass6_Sub1_2 = new OpenGl2DTexture(this, 3553, 6408, 1, 1);
 		this.aClass6_Sub1_1 = new OpenGl2DTexture(this, 3553, 6408, 1, 1);
@@ -2735,7 +4336,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 
 	@OriginalMember(owner = "client!fd", name = "m", descriptor = "(Z)V")
 	private void method1968() {
-		if (this.aBoolean197 && this.anInt2315 >= 0 | this.aBoolean192) {
+		if (fogActive()) {
 			OpenGL.glEnable(2912);
 		} else {
 			OpenGL.glDisable(2912);
@@ -2770,11 +4371,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	@OriginalMember(owner = "client!fd", name = "w", descriptor = "(I)V")
 	private void prepareForRendering() {
 		this.method1957(-2);
-		for (@Pc(14) int local14 = this.anInt2306 - 1; local14 >= 0; local14--) {
-			this.method1936(local14);
-			this.setActiveTexture(null);
-			OpenGL.glTexEnvi(8960, 8704, 34160);
-		}
+		this.hdClearTextureUnits();
 		this.method1912(8448, 8448);
 		this.method1945(2, 770, 34168);
 		this.method1917();
@@ -2784,6 +4381,10 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.anInt2316 = 1;
 		OpenGL.glEnable(3008);
 		OpenGL.glAlphaFunc(516, 0.0F);
+		// The function goes with the flag: the cut-out pass changes both and must
+		// put both back, and the toolkit can only check that if it knows what it
+		// set.
+		this.hdAlphaFunc = 516;
 		this.aBoolean216 = true;
 		OpenGL.glColorMask(true, true, true, true);
 		this.aBoolean195 = true;
@@ -2796,6 +4397,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		OpenGL.glShadeModel(7425);
 		OpenGL.glClearDepth(1.0F);
 		OpenGL.glDepthFunc(515);
+		this.hdDepthFunc = 515;
 		OpenGL.glPolygonMode(1028, 6914);
 		OpenGL.glEnable(2884);
 		OpenGL.glCullFace(1029);

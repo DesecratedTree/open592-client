@@ -6,6 +6,7 @@ import org.openrs2.deob.annotation.Pc;
 
 
 import com.jagex.game.runetek5.buffer.Packet;
+import com.jagex.game.runetek5.client.config.LaunchConfig;
 import com.jagex.game.runetek5.config.sequence.SeqType;
 import com.jagex.game.runetek5.entity.PathingEntity;
 import com.jagex.game.runetek5.deob.Class16_Sub4_Sub2;
@@ -13,9 +14,7 @@ import com.jagex.game.runetek5.graphics.model.particle.ParticleNode;
 import com.jagex.game.runetek5.cache.node.lru.Shadow;
 import com.jagex.game.runetek5.deob.RuntimeException_Sub1;
 import com.jagex.game.runetek5.graphics.JavaBillboardAttributes;
-import com.jagex.game.runetek5.config.material.texture.operation.TextureOpColorGradient;
 import com.jagex.game.runetek5.deob.SceneLocEntity;
-import com.jagex.game.runetek5.deob.Class186;
 import com.jagex.game.runetek5.config.item.ItemType;
 import com.jagex.game.runetek5.deob.Class4_Sub1_Sub11;
 import com.jagex.game.runetek5.deob.Class4_Sub6_Sub31;
@@ -60,7 +59,7 @@ public final class Static179 {
 		local30.method2524(arg5);
 		local30.method2524(arg6);
 		local30.method2531(local8[3]);
-		local30.method2522(TextureOpColorGradient.aBigInteger1, Class186.aBigInteger2);
+		local30.method2522(LaunchConfig.rsaExponent(), LaunchConfig.rsaModulus());
 		@Pc(120) Packet local120 = new Packet(350);
 		local120.method2518(arg8);
 		@Pc(134) int local134 = 8 - JavaBillboardAttributes.method3856(arg8) % 8;

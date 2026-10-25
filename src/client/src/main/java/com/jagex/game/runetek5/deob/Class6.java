@@ -51,6 +51,18 @@ public abstract class Class6 implements Binding {
 	@OriginalMember(owner = "client!kj", name = "t", descriptor = "Z")
 	private boolean aBoolean490;
 
+	/**
+	 * The 592HD texture-quality state this object was last configured with; 0
+	 * until a quality row applies. See {@code HdTextureQuality.signature()}.
+	 */
+	private int hdQualitySignature;
+
+	/** True when a quality row generated this texture's mip chain. */
+	private boolean hdMipmapped;
+
+	/** The anisotropy samples a quality row last applied; 0 when none. */
+	private int hdAnisotropy;
+
 	@OriginalMember(owner = "client!kj", name = "f", descriptor = "Lclient!fd;")
 	protected final GlToolkit aClass19_Sub2_31;
 
@@ -126,6 +138,73 @@ public abstract class Class6 implements Binding {
 	@OriginalMember(owner = "client!kj", name = "a", descriptor = "(Z)I")
 	public final int method4186() {
 		return this.anInt5449;
+	}
+
+	/**
+	 * 592HD: applies the Mipmaps and Anisotropic rows to this texture.
+	 *
+	 * <p>Called from the material texture cache, which is the one path that
+	 * creates world textures - sprites, interface atlases and render targets are
+	 * built elsewhere and must not be mipmapped. The signature makes the call
+	 * cheap when nothing changed and lets a texture created before a row was
+	 * toggled pick the new state up on its next cache hit.
+	 *
+	 * <p>Off restores stock in the same call. GL keeps the min filter, the mip
+	 * chain and the anisotropy maximum per texture, so refusing to write them is
+	 * not the same as putting them back: a texture the row mipmapped would keep
+	 * sampling its chain forever. When the rows stop asking, the chain is dropped
+	 * and the texture's own filter reinstated through {@link #method4180()} -
+	 * which is the same path every stock filter change takes, so the result is
+	 * the filter this texture had before the row existed - and the anisotropy
+	 * parameter goes back to GL's 1x.
+	 */
+	public final void hdApplyTextureQuality(int width, int height) {
+		int signature = com.jagex.game.runetek5.client.hd.texture.HdTextureQuality.signature();
+		if (signature == this.hdQualitySignature) {
+			return;
+		}
+		this.hdQualitySignature = signature;
+		this.aClass19_Sub2_31.setActiveTexture(this);
+		boolean wantsChain = (signature & 1) != 0 && width > 1 && height > 1 && this.anInt5441 == 3553;
+		if (wantsChain && !this.aBoolean490) {
+			// method4189 generates the chain, switches the min filter and keeps
+			// the toolkit's texture-memory accounting honest. A texture the stock
+			// path already mipmapped is left alone: its chain is not the row's.
+			this.method4189();
+			this.hdMipmapped = this.aBoolean490;
+		} else if (!wantsChain && this.hdMipmapped) {
+			this.hdRevertMipmaps();
+		}
+		int samples = com.jagex.game.runetek5.client.hd.texture.HdTextureQuality.applyAnisotropy(this.anInt5441);
+		if (samples > 1) {
+			this.hdAnisotropy = samples;
+		} else if (this.hdAnisotropy != 0) {
+			com.jagex.game.runetek5.client.hd.texture.HdTextureQuality.restoreAnisotropy(this.anInt5441);
+			this.hdAnisotropy = 0;
+		}
+	}
+
+	/**
+	 * 592HD: drops the mip chain a quality row generated and restores this
+	 * texture's stock filter and memory accounting.
+	 *
+	 * <p>{@code anInt5449} is cleared by neither path: the chain lives in the
+	 * same texture object as level 0, so dropping it is a filter and accounting
+	 * change, not a delete. GL has no call that frees the higher levels without
+	 * re-specifying level 0, whose pixels this object no longer holds; leaving
+	 * them unreferenced is what makes the revert exact in behaviour, which is
+	 * what the row promises.
+	 */
+	private void hdRevertMipmaps() {
+		if (!this.aBoolean490) {
+			this.hdMipmapped = false;
+			return;
+		}
+		int current = this.method4184();
+		this.aBoolean490 = false;
+		this.method4180();
+		this.method4179(current);
+		this.hdMipmapped = false;
 	}
 
 	@OriginalMember(owner = "client!kj", name = "finalize", descriptor = "()V")

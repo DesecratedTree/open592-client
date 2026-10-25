@@ -217,7 +217,19 @@ public final class QuickChatCategoryType extends CacheableNode {
 							local187[local214][local218] = Class4_Sub37.method4164(local189 + local214, arg0, local210, local193 + local218);
 						}
 					}
-					Class4_Sub6_Sub4.aClass65Array1[local210].method4025(local189, local193, local189 + QuickChatValueType.anInt3061, local193 - -QuickChatValueType.anInt3061, local187);
+					// 592HD: this bake reuses the world's ground pass from a top-down
+					// projection of its own, so the scene's per-pixel lighting must stand
+					// aside for it - it would light the map with the camera's fog and
+					// sun and flatten the whole terrain to one tone. The stock path
+					// draws this pass with its own lights either way.
+					arg1.hdMapBakeBegin();
+					try {
+						Class4_Sub6_Sub4.aClass65Array1[local210].method4025(local189, local193,
+							local189 + QuickChatValueType.anInt3061,
+							local193 - -QuickChatValueType.anInt3061, local187);
+					} finally {
+						arg1.hdMapBakeEnd();
+					}
 					if (!GlFramebuffer.aBoolean424) {
 						for (local218 = -4; local218 < QuickChatValueType.anInt3061; local218++) {
 							for (local274 = -4; local274 < QuickChatValueType.anInt3061; local274++) {

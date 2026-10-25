@@ -33,6 +33,15 @@ public final class EffectManagerGL {
 	@OriginalMember(owner = "client!uv", name = "h", descriptor = "I")
 	private int anInt6869 = 0;
 
+	/**
+	 * True when a material effect (water and friends) currently owns the GL
+	 * program. The 592HD lighting shader must not bind over it. Read-only seam;
+	 * see {@code GlToolkit.method1938} for where an effect is selected.
+	 */
+	public boolean isEffectActive() {
+		return this.anInt6869 != 0;
+	}
+
 	@OriginalMember(owner = "client!uv", name = "e", descriptor = "I")
 	private int anInt6867 = 0;
 

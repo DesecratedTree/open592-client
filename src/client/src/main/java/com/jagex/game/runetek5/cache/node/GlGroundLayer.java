@@ -15,6 +15,7 @@ import com.jagex.game.runetek5.buffer.Packet;
 import com.jagex.game.runetek5.config.material.MaterialType;
 import com.jagex.game.runetek5.deob.Class177;
 import com.jagex.game.runetek5.deob.Class64_Sub1;
+import com.jagex.game.runetek5.client.hd.ground.HdGroundWater;
 import com.jagex.game.runetek5.graphics.gl.GlToolkit;
 import com.jagex.game.runetek5.scene.ground.GlGround;
 
@@ -155,7 +156,32 @@ public final class GlGroundLayer extends Country {
 		OpenGL.glScalef(1.0F / this.textureScale, 1.0F / this.textureScale, 1.0F);
 		OpenGL.glMatrixMode(5888);
 		this.aClass19_Sub2_11.method1934(this.colourDrawBuffer, this.glGround.aClass177_16, this.glGround.aClass177_14, this.glGround.aClass177_15);
-		this.aClass19_Sub2_11.method1967(0, local7, this.aClass64_Sub1_1);
+		// 592HD: the terrain is a receiver on its live draw too. This method is
+		// the pass the scene submits every frame (method4029 -> method4034 ->
+		// here, one call per layer); the top-down map bake is GlGround.method4025
+		// and draws its own indices, so it never reaches this method.
+		//
+		// The buffer holds scene units - GlToolkit.createGround builds the pass
+		// with 128 vertices per tile, so x and z are already the coordinates a
+		// model at that spot reports - and the pass draws it under the camera's
+		// own matrices, method1952's rotX(180) * V. Both of the seam's inputs
+		// therefore come from the drawn vertex and the live camera: tile-to-scene
+		// is the identity (the window starts at tile 0 because this pass draws
+		// the whole scene), and scene-to-eye is read from aClass31_Sub1_4.
+		// The caustics row's depth is this layer's own stock value - the byte
+		// Terrain reads per tile for an underwater region and GA passed to the
+		// water effect as depth / 255 - so the pattern is scaled by exactly the
+		// water the client already knows stands here, and a dry tile is DRY.
+		boolean hdLighting = this.aClass19_Sub2_11.hdBeginGroundLighting(this.anInt1647 >= 0,
+			this.glGround.anInt5261, 0, 0, HdGroundWater.of(this.waterDepth), this.anInt1647,
+			this.textureScale, this.glGround.hdTileMaterialsTexture());
+		try {
+			this.aClass19_Sub2_11.method1967(0, local7, this.aClass64_Sub1_1);
+		} finally {
+			if (hdLighting) {
+				this.aClass19_Sub2_11.hdEndModelLighting();
+			}
+		}
 		OpenGL.glMatrixMode(5890);
 		OpenGL.glPopMatrix();
 		OpenGL.glMatrixMode(5888);

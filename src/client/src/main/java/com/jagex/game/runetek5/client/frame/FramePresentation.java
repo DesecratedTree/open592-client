@@ -1,6 +1,9 @@
 package com.jagex.game.runetek5.client.frame;
 
 import com.jagex.game.runetek5.client.camera.CameraFrameUpdate;
+import com.jagex.game.runetek5.client.hd.sky.HdSkyTime;
+import com.jagex.game.runetek5.client.hd.sway.HdWindTime;
+import com.jagex.game.runetek5.client.hd.water.HdWaterTime;
 import com.jagex.game.runetek5.client.input.mouse.MiddleMouseCamera;
 import com.jagex.game.runetek5.config.material.MaterialType;
 import com.jagex.game.runetek5.preference.Preference;
@@ -32,6 +35,17 @@ public final class FramePresentation {
 	public void beginFrame(long deltaMillis) {
 		this.sampleMouseLook();
 		CameraFrameUpdate.step(deltaMillis);
+		// Water waves are presentation too: the same delta that eases the camera
+		// drives them, so they move at the same speed at any frame rate.
+		HdWaterTime.advance(deltaMillis);
+		// Vegetation leans on the same delta and for the same reason: a copse
+		// that swayed per tick would speed up with the tick rate, and one that read
+		// a wall clock would jump when a paused client resumed.
+		HdWindTime.advance(deltaMillis);
+		// The day/night clock turns on the same delta, so a day length is real
+		// minutes of rendering rather than frames, and a paused client's sun
+		// stands still instead of jumping when it resumes.
+		HdSkyTime.advance(deltaMillis);
 	}
 
 	/**

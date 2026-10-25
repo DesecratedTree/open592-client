@@ -7,11 +7,13 @@ import org.openrs2.deob.annotation.Pc;
 
 
 import com.jagex.game.runetek5.cache.node.lru.Shadow;
+import com.jagex.game.runetek5.client.hd.sway.HdVegetation;
 import com.jagex.game.runetek5.config.sequence.SeqType;
 import com.jagex.game.runetek5.deob.Class149;
 import com.jagex.game.runetek5.deob.Class65;
 import com.jagex.game.runetek5.deob.Static267;
 import com.jagex.game.runetek5.entity.ParticleSystem;
+import com.jagex.game.runetek5.graphics.model.GlModel;
 import com.jagex.game.runetek5.graphics.model.Model;
 import com.jagex.game.runetek5.graphics.model.particle.EffectiveVertex;
 import com.jagex.game.runetek5.graphics.model.particle.EmissiveTriangle;
@@ -200,6 +202,14 @@ public final class LocEntity {
 		this.anInt543 = arg3;
 		this.anInt537 = this.anInt538;
 		this.anInt544 = arg0;
+		// 592HD: the one place the scene still knows a plant from a wall. The two
+		// vegetation rows displace only models marked here; the kind rides the
+		// model into the draw seam instead of being guessed from geometry there.
+		// The model is the loc type's own, keyed by the same shape that built it,
+		// so the mark is stable for every draw of it.
+		if (local168 instanceof GlModel) {
+			((GlModel) local168).hdVegetation = HdVegetation.ofLocShape(this.anInt536);
+		}
 		return local168;
 	}
 

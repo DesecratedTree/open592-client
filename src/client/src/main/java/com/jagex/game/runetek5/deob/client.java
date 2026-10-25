@@ -18,6 +18,7 @@ import com.jagex.game.runetek5.Js5TextureSource;
 import com.jagex.game.runetek5.buffer.Packet;
 import com.jagex.game.runetek5.cache.FileOnDisk;
 import com.jagex.game.runetek5.client.GameShell;
+import com.jagex.game.runetek5.client.config.LaunchConfig;
 import com.jagex.game.runetek5.client.loading.loader.Js5GroupLoader;
 import com.jagex.game.runetek5.config.cursor.CursorTypeList;
 import com.jagex.game.runetek5.config.enumtype.EnumTypeList;
@@ -270,6 +271,9 @@ import com.jagex.game.runetek5.client.frame.FramePresentation;
 import com.jagex.game.runetek5.client.camera.CameraZoomController;
 import com.jagex.game.runetek5.client.camera.CameraPreferences;
 import com.jagex.game.runetek5.client.animation.Tweening;
+import com.jagex.game.runetek5.client.hd.HdCommands;
+import com.jagex.game.runetek5.client.hd.HdSettings;
+import com.jagex.game.runetek5.client.hd.options.HdOptionsScreen;
 import com.jagex.game.runetek5.client.cursor.CursorSettings;
 
 import com.jagex.game.runetek5.client.input.mouse.MiddleMouseCamera;
@@ -545,6 +549,10 @@ public final class client extends GameShell {
 		} else if (VertexDeclarationComponent.anInt6667 == 40) {
 			TextureOpSquareWaveform.method5519(true, Terrain.aClass83_150.method2267(NativeBillboardFace.anInt3423) + "<br>" + GlCubeTexture.aClass83_69.method2267(NativeBillboardFace.anInt3423), Class6.aClass46_9);
 		}
+		// 592HD: restore saved non-default rows once the toolkit exists, then
+		// queue the page after the interface/HUD pass so it flushes on top.
+		HdSettings.applySavedDeviations(HdCommands.backend());
+		HdOptionsScreen.draw(MonoStereoData.aClass19_16);
 		if (GlGround.lastSentMouseX == 3) {
 			for (local98 = 0; local98 < SeqType.p12FullIndex; local98++) {
 				@Pc(394) Rectangle local394 = Class4_Sub6_Sub23.aRectangleArray1[local98];
@@ -805,6 +813,10 @@ public final class client extends GameShell {
 			}
 		}
 		for (@Pc(168) Class4_Sub5 local168 = MaterialType.aClass80_1.method2232(); local168 != null; local168 = MaterialType.aClass80_1.method2232()) {
+			// The 592HD pane gets first refusal while it is showing.
+			if (HdOptionsScreen.consumeClick(local168.method518(), local168.method519(), local168.method515())) {
+				continue;
+			}
 			@Pc(174) int local174 = local168.method515();
 			if (local174 == -1) {
 				Class4_Sub6_Sub31.aClass183_42.method4137(local168);
@@ -850,6 +862,7 @@ public final class client extends GameShell {
 		CameraPreferences.load();
 		CursorSettings.load();
 		Tweening.load();
+		HdSettings.load();
 		Static107.anInt2335 = Integer.parseInt(this.getParameter("worldid"));
 		GlToolkit.aClass219_2 = Class190.method4222(Integer.parseInt(this.getParameter("modewhere")));
 		if (!Class16_Sub4_Sub3.method3034(GlToolkit.aClass219_2) && Class222.aClass219_6 != GlToolkit.aClass219_2) {
@@ -966,10 +979,12 @@ public final class client extends GameShell {
 			ParticleBinaryTree.aByteArrayArray28 = new byte[50][];
 		}
 		TextureOpBrightness.aClass50_Sub1_1 = new Class50_Sub1(Class126.aClass66_4);
+		// Ships disabled until the HD pipeline exists; see HdCapabilities.
+		HdSettings.applyPendingDefaults(HdCommands.backend());
 		if (GlToolkit.aClass219_2 == Class222.aClass219_6) {
 			BufferedSocket.aString4 = this.getCodeBase().getHost();
-			Static133.anInt2755 = 43594;
-			ReflectiveRipplingWaterEffect.anInt154 = 43594; // 443
+			Static133.anInt2755 = LaunchConfig.gamePort();
+			ReflectiveRipplingWaterEffect.anInt154 = LaunchConfig.gamePort();
 		} else if (Class16_Sub4_Sub3.method3034(GlToolkit.aClass219_2)) {
 			BufferedSocket.aString4 = this.getCodeBase().getHost();
 			Static133.anInt2755 = Static107.anInt2335 + 40000;

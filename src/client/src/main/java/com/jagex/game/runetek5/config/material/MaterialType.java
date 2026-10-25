@@ -18,6 +18,31 @@ import com.jagex.game.runetek5.config.flu.FluTypeList;
 import com.jagex.game.runetek5.GpuFaceNormal;
 import com.jagex.game.runetek5.deob.client;
 import com.jagex.game.runetek5.deob.Class249;
+/**
+ * One material as the 592 cache defines it: the parameters its texture is
+ * generated from, not a lighting response.
+ *
+ * <p>Every field is a property the material index sets per material, and every
+ * one of them is consumed by texture generation, animation or a texture effect:
+ * the size ({@code isSmall}), the colours and the two scroll rates the texture
+ * matrix is built from ({@code aByte87}, {@code aByte90}, {@code aByte91},
+ * {@code aByte93}), the blend and alpha flags ({@code aBoolean639},
+ * {@code aBoolean640}, {@code aBoolean642}, {@code aBoolean643},
+ * {@code aBoolean644}, and {@code aByte92} for an alpha channel), the
+ * texture-effect slot and its two parameters ({@code aByte89},
+ * {@code aByte88}, {@code anInt6933}), the texture-environment parameter
+ * ({@code anInt6934}), the colour ({@code colorHsl}) and whether the texture is
+ * built as float data ({@code aBoolean638}).
+ *
+ * <p><b>There is no specular strength here and no exponent</b>, and no
+ * roughness. 592's own "specular" is the stock pre-filtered environment cube
+ * map ({@code FixedFunctionSpecularPass}), whose exponent levels are baked into
+ * its ramp and selected by a texture effect - it is a reflection, not a
+ * per-material light response. A renderer that wants a per-material highlight
+ * (for instance {@code HdFeature.LIGHTING_MODEL}) therefore cannot read one out
+ * of this record: it needs material maps of its own, which this client does not
+ * ship.
+ */
 @OriginalClass("client!vf")
 public final class MaterialType {
 

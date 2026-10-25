@@ -112,6 +112,13 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Real-GL proofs run by default: jaggl.GlTestContext.open() is the one gate,
+    // and it skips them only when this machine cannot give a context. The
+    // optional glslangValidator location is forwarded because a Gradle -D flag
+    // lives on the daemon, not in the forked test JVM.
+    if (System.getProperty('hd.glslValidator') != null) {
+        systemProperty 'hd.glslValidator', System.getProperty('hd.glslValidator')
+    }
 }
 
 // Verifies the LWJGL dependency set rather than trusting it: one version across

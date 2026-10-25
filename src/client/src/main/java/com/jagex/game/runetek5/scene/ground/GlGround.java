@@ -41,6 +41,7 @@ import com.jagex.game.runetek5.entity.NPCEntity;
 import com.jagex.game.runetek5.js5.Js5ResourceProvider;
 import com.jagex.game.runetek5.sound.jagtheora.OggOtherStream;
 import com.jagex.game.runetek5.scene.ground.*;
+import com.jagex.game.runetek5.client.hd.ground.HdTileMaterialMap;
 import com.jagex.game.runetek5.deob.Class126;
 import com.jagex.game.runetek5.Skybox;
 import com.jagex.game.runetek5.deob.Class4_Sub37;
@@ -102,6 +103,17 @@ public final class GlGround extends Class65 {
 
 	@OriginalMember(owner = "client!oq", name = "ib", descriptor = "[Lclient!dw;")
 	private GlGroundLayer[] layers;
+
+	/**
+	 * 592HD: the mesh's per-tile material map, recorded as each tile's layers
+	 * are created. The layer array is released when the mesh is finished, so the
+	 * two materials a tile is built from have to be copied out here or the draw
+	 * can no longer know them.
+	 */
+	private HdTileMaterialMap hdTileMaterials;
+
+	/** The map's texture, built on the first draw that wants it. */
+	private com.jagex.game.runetek5.deob.OpenGl2DTexture hdTileMaterialsTexture;
 
 	@OriginalMember(owner = "client!oq", name = "F", descriptor = "Lclient!pk;")
 	private final Class183 lights = new Class183();
@@ -292,11 +304,12 @@ public final class GlGround extends Class65 {
 		SpriteDrawQueue.aFloatArray28[7] = 0.0F;
 		OpenGL.glMatrixMode(5888);
 		OpenGL.glLoadMatrixf(SpriteDrawQueue.aFloatArray28, 0);
-		if ((this.featureFlags & 0x7) == 0) {
-			this.glToolkit.method1906(false);
-		} else {
+		@Pc(268) boolean litPass = (this.featureFlags & 0x7) != 0;
+		if (litPass) {
 			this.glToolkit.method1906(true);
 			this.glToolkit.method1914();
+		} else {
+			this.glToolkit.method1906(false);
 		}
 		this.glToolkit.method1934(this.layerTable, this.aClass177_16, this.aClass177_14, this.aClass177_15);
 		if (PcmPlayerThread.aClass4_Sub12_7.buffer.length < this.anInt5270 * 2) {
@@ -345,6 +358,11 @@ public final class GlGround extends Class65 {
 		}
 		if (local305 > 0) {
 			@Pc(470) Class64_Sub1 local470 = new Class64_Sub1(this.glToolkit, 5123, PcmPlayerThread.aClass4_Sub12_7.buffer, PcmPlayerThread.aClass4_Sub12_7.currentPosition);
+			// 592HD: this is the world map's top-down bake - the caller holds
+			// Toolkit.hdMapBakeBegin/End around it - so it must draw exactly what
+			// the stock path drew: the per-pixel program is expressed in the scene
+			// camera's space, which this pass does not have. The live terrain draw
+			// is GlGroundLayer.method1462, and that is where the seam binds.
 			this.glToolkit.method1967(0, local305, local470);
 		}
 	}
@@ -476,6 +494,26 @@ public final class GlGround extends Class65 {
 		}
 	}
 
+	/** 592HD seam: this mesh's per-tile material texture, or null when no mesh has been built. */
+	public com.jagex.game.runetek5.deob.OpenGl2DTexture hdTileMaterialsTexture() {
+		if (this.hdTileMaterialsTexture == null && this.hdTileMaterials != null) {
+			this.hdTileMaterialsTexture = this.glToolkit.hdGroundTileMaterials(this.hdTileMaterials);
+		}
+		return this.hdTileMaterialsTexture;
+	}
+
+	/**
+	 * 592HD test hook: attaches a per-tile material map to a mesh whose tiles were
+	 * built outside {@code constructTileLayers}, so a real-GL proof can drive the
+	 * atlas branch. Production fills the map as each tile's layers are made;
+	 * nothing in the game calls this. Public because the frame-contract harness
+	 * lives in another package and builds its terrain the same synthetic way.
+	 */
+	public void hdAttachTileMaterialsForTest(HdTileMaterialMap materials) {
+		this.hdTileMaterials = materials;
+		this.hdTileMaterialsTexture = null;
+	}
+
 	@OriginalMember(owner = "client!oq", name = "l", descriptor = "(II)I")
 	@Override
 	public int l(@OriginalArg(0) int arg0, @OriginalArg(1) int arg1) {
@@ -502,6 +540,21 @@ public final class GlGround extends Class65 {
 			this.anIntArrayArrayArray8[arg0][arg1] = arg3;
 		}
 		@Pc(88) GlGroundLayer[] local88 = this.tileLayers[arg0][arg1] = new GlGroundLayer[arg6.length];
+		// 592HD: the tile's two materials, copied out before the layer array is
+		// released. The first layer is the tile's dominant material; the mate is
+		// the first later layer that uses a different one.
+		if (this.hdTileMaterials == null) {
+			this.hdTileMaterials = new HdTileMaterialMap();
+		}
+		int hdPrimary = arg6.length > 0 ? arg8[0] : -1;
+		int hdMate = -1;
+		for (int hdLayer = 1; hdLayer < arg6.length; hdLayer++) {
+			if (arg8[hdLayer] != hdPrimary) {
+				hdMate = arg8[hdLayer];
+				break;
+			}
+		}
+		this.hdTileMaterials.set(arg0, arg1, hdPrimary, hdMate);
 		for (@Pc(90) int local90 = 0; local90 < arg6.length; local90++) {
 			@Pc(119) long local119 = (long) arg10 << 28 | (long) arg12 << 48 | (long) arg11 << 42 | (long) (arg9[local90] << 14) | (long) arg8[local90];
 			@Pc(125) Country local125;
@@ -873,6 +926,9 @@ public final class GlGround extends Class65 {
 		this.anIntArrayArrayArray10 = null;
 		this.aClass102_27 = null;
 		this.tileLayers = null;
+		// The map stays: it describes the mesh that was just built, and its
+		// texture is uploaded on the first draw. It is rebuilt with the mesh.
+		this.hdTileMaterialsTexture = null;
 		this.aFloatArrayArray9 = this.aFloatArrayArray7 = this.normalZ = null;
 		this.anIntArrayArrayArray6 = this.anIntArrayArrayArray7 = null;
 		this.shadowLevels = null;
