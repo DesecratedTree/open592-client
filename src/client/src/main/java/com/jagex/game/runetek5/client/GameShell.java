@@ -3,6 +3,7 @@ package com.jagex.game.runetek5.client;
 import jagex3.jagmisc.jagmisc;
 import java.applet.Applet;
 import java.applet.AppletContext;
+import java.awt.Color;
 import java.awt.Container;
 import java.awt.Frame;
 import java.awt.Graphics;
@@ -28,6 +29,7 @@ import com.jagex.game.runetek5.client.cycle.ClientFrameClock;
 import com.jagex.game.runetek5.client.cycle.FramePacer;
 import com.jagex.game.runetek5.client.cycle.FrameRateStats;
 import com.jagex.game.runetek5.client.cycle.TickBatch;
+import com.jagex.game.runetek5.client.frame.CanvasResizeRedraw;
 import com.jagex.game.runetek5.deob.Static17;
 import com.jagex.game.runetek5.deob.Static173;
 import com.jagex.game.runetek5.deob.Static441;
@@ -233,6 +235,10 @@ public abstract class GameShell extends Applet implements Runnable, FocusListene
 		}
 		local18.setLayout(null);
 		Class164.aCanvas5 = new GameCanvas(this);
+		// A resized canvas is not repainted by AWT on macOS; the seam asks for
+		// the frame the resize would have drawn. Attached to the canvas, not
+		// the frame, because it is the canvas' surface that is reallocated.
+		CanvasResizeRedraw.attach(Class164.aCanvas5);
 		local18.add(Class164.aCanvas5);
 		Class164.aCanvas5.setSize(GpuPointLight.anInt2881, EffectiveVertex.anInt5346);
 		Class164.aCanvas5.setVisible(true);
@@ -527,6 +533,14 @@ public abstract class GameShell extends Applet implements Runnable, FocusListene
 			Class174.anApplet_Sub1_2 = this;
 			ModelNormalsGL.aFrame1 = new Frame();
 			ModelNormalsGL.aFrame1.setTitle("Jagex");
+			// The game canvas is the windowed game's own size, which is not always
+			// the window's: a resizable window the player enlarges keeps a fixed
+			// 765x503 view centred in it, and everything the canvas does not cover
+			// is painted in the frame's background. Left at the toolkit default
+			// that is the system window colour - white on macOS, where the resize
+			// first shows it - so the letterbox is set to black here, the colour
+			// the canvas itself paints around the game view.
+			ModelNormalsGL.aFrame1.setBackground(Color.BLACK);
 			ModelNormalsGL.aFrame1.setResizable(true);
 			ModelNormalsGL.aFrame1.addWindowListener(this);
 			ModelNormalsGL.aFrame1.setVisible(true);
