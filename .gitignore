@@ -3,6 +3,10 @@ build/
 .idea/
 *.iml
 client-current.jar
+launcher.properties
+launcher/logs/
+launcher/src-tauri/target/
+launcher/src-tauri/gen/
 /.freebuff
 /gradle
 gradlew
