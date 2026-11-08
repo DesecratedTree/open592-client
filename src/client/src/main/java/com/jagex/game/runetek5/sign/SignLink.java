@@ -430,6 +430,16 @@ public final class SignLink implements Runnable {
 						@Pc(152) Transferable local152 = (Transferable) local15.anObject28;
 						@Pc(155) Clipboard local155 = Toolkit.getDefaultToolkit().getSystemClipboard();
 						local155.setContents(local152, null);
+					} else if (local41 == 12) {
+						// The client's own preferences file (graphics options and sound).
+						// Without this branch the request fell through to the final
+						// throw, so every save and load failed and settings reset on
+						// each launch.
+						JFS32 preferences = PreferencesFile.open((String) local15.anObject28, this.aString20, this.anInt1988);
+						if (preferences == null) {
+							throw new IOException();
+						}
+						local15.anObject29 = preferences;
 					} else if (local41 == 17) {
 						local107 = (Object[]) local15.anObject28;
 						@Pc(300) Component local300 = (Component) local107[0];

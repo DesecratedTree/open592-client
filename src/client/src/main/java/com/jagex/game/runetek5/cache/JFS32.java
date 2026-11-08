@@ -29,6 +29,38 @@ public final class JFS32 {
 	private JFS32() {
 	}
 
+	/**
+	 * Opens a file for the reads and writes the game's own preferences make
+	 * ({@code Class50_Sub1} for graphics options, {@code Class190} and
+	 * {@code PcmPlayer} for sound). Stock opened this through SignLink's
+	 * worker; without the constructor those callers had no way to get a
+	 * {@code JFS32} and every load and save failed silently.
+	 *
+	 * <p>{@code maxLength} bounds a write, exactly like the loader's copy of
+	 * this class: the file is discarded when it is already longer than that,
+	 * so a corrupt or oversized preferences file starts clean instead of
+	 * hitting the bound on the first save.
+	 */
+	@OriginalMember(owner = "client!rp", name = "<init>", descriptor = "(Ljava/io/File;Ljava/lang/String;J)V")
+	public JFS32(@OriginalArg(0) File file, @OriginalArg(1) String mode, @OriginalArg(2) long maxLength) throws IOException {
+		if (maxLength == -1L) {
+			maxLength = Long.MAX_VALUE;
+		}
+		if (maxLength < file.length()) {
+			file.delete();
+		}
+		this.aFile1 = file;
+		this.rwFile = new RandomAccessFile(file, mode);
+		this.aLong201 = maxLength;
+		this.aLong200 = 0L;
+		@Pc(37) int firstByte = this.rwFile.read();
+		if (firstByte != -1 && !mode.equals("r")) {
+			this.rwFile.seek(0L);
+			this.rwFile.write(firstByte);
+		}
+		this.rwFile.seek(0L);
+	}
+
 	@OriginalMember(owner = "client!rp", name = "a", descriptor = "(I)V")
 	public void method4713() throws IOException {
 		if (this.rwFile != null) {
