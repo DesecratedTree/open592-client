@@ -12,10 +12,11 @@ import com.jagex.game.runetek5.unpack_Sub1;
  * the fixed-function pass. Copying each registered material into its
  * {@link HdWorldAtlas} cell therefore changes where a texture is read from, not
  * what it looks like.
- *
- * <p>A material whose texture has not streamed in yet contributes nothing: the
- * page keeps the previous frame's cell (or an empty one), and the caller only
- * registers materials the provider says are available. Rebuilding the whole
+ *	 * <p>A material whose texture has not streamed in yet contributes nothing, and
+	 * gives its published cell back: a cell nothing is copied into holds zeroes,
+	 * and the ground pass' alpha test discards those, which is a hole where one
+	 * material's ground should be - so the map stops pointing at it and that
+	 * material draws its stock texture until its art answers. Rebuilding the whole
  * page each time a material joins costs one copy of 512x512 ints - once per new
  * material, not per frame. A cell recycled by {@link HdMaterialMap} is copied
  * again on that same rebuild, which is why the page reads its cells from the
@@ -58,6 +59,13 @@ public final class HdWorldPage {
 			// stays empty - which is why the map never publishes such a cell.
 			int[] art = HdMaterialArt.art(provider, material);
 			if (art == null) {
+				// The map published a cell for a material whose art does not
+				// answer now. Leaving the cell empty is not a dark tile: the
+				// ground pass' GREATER alpha test discards a zeroed (alpha 0)
+				// texel, so the material's whole tile loses its texture while
+				// the material beside it draws. Take the cell back and let the
+				// material keep the stock single-texture draw.
+				map.release(material);
 				continue;
 			}
 			int left = HdWorldAtlas.x(cell);

@@ -147,44 +147,63 @@ public final class GlGroundLayer extends Country {
 		}
 		this.aClass64_Sub1_1.method3657(local9.buffer, local9.currentPosition);
 		this.aClass19_Sub2_11.method1934(this.colourDrawBuffer, this.glGround.aClass177_16, this.glGround.aClass177_14, this.glGround.aClass177_15);
-		this.aClass19_Sub2_11.method1926((this.glGround.featureFlags & 0x7) != 0, this.anInt1647, (this.glGround.featureFlags & 0x8) != 0);
-		if (this.aClass19_Sub2_11.aBoolean192) {
-			this.aClass19_Sub2_11.GA(Integer.MAX_VALUE, this.anInt1641, this.anInt1640, this.waterDepth);
+		// 592HD: a ground layer that stands in water draws 634HD's surface through
+		// the terrain-format program, whose vertex stage reads these same arrays.
+		// The client submits its ground twice per frame - the water pass, then the
+		// terrain pass - so a water layer must run the surface in both: the second
+		// pass covers the same tile at the same depth, and a terrain draw there is
+		// what erased the water's surface. A dry layer is never taken, so it keeps
+		// the client's own draw in both passes.
+		HdGroundWater hdWater = HdGroundWater.of(this.waterDepth);
+		boolean hdWaterGround = this.aClass19_Sub2_11.hdBeginWaterGround(this.anInt1647,
+			this.waterDepth <= 0 ? 0.0F : (float) this.waterDepth / (float) HdGroundWater.FULL_DEPTH, hdWater);
+		this.aClass19_Sub2_11.method1926((this.glGround.featureFlags & 0x7) != 0, this.anInt1647,
+			(this.glGround.featureFlags & 0x8) != 0);
+	if (this.aClass19_Sub2_11.aBoolean192) {
+		this.aClass19_Sub2_11.GA(Integer.MAX_VALUE, this.anInt1641, this.anInt1640, this.waterDepth);
+	}
+	OpenGL.glMatrixMode(5890);
+	OpenGL.glPushMatrix();
+	OpenGL.glScalef(1.0F / this.textureScale, 1.0F / this.textureScale, 1.0F);
+	OpenGL.glMatrixMode(5888);
+	this.aClass19_Sub2_11.method1934(this.colourDrawBuffer, this.glGround.aClass177_16, this.glGround.aClass177_14, this.glGround.aClass177_15);
+	// 592HD: the terrain is a receiver on its live draw too. This method is
+	// the pass the scene submits every frame (method4029 -> method4034 ->
+	// here, one call per layer); the top-down map bake is GlGround.method4025
+	// and draws its own indices, so it never reaches this method.
+	//
+	// The buffer holds scene units - GlToolkit.createGround builds the pass
+	// with 128 vertices per tile, so x and z are already the coordinates a
+	// model at that spot reports - and the pass draws it under the camera's
+	// own matrices, method1952's rotX(180) * V. Both of the seam's inputs
+	// therefore come from the drawn vertex and the live camera: tile-to-scene
+	// is the identity (the window starts at tile 0 because this pass draws
+	// the whole scene), and scene-to-eye is read from aClass31_Sub1_4.
+	// The caustics row's depth is this layer's own stock value - the byte
+	// Terrain reads per tile for an underwater region and GA passed to the
+	// water effect as depth / 255 - so the pattern is scaled by exactly the
+	// water the client already knows stands here, and a dry tile is DRY.
+	// A water layer's surface owns the program; the terrain program would
+	// replace it with a draw that has no water surface in it.
+		boolean hdLighting = !hdWaterGround && this.aClass19_Sub2_11.hdBeginGroundLighting(this.anInt1647 >= 0,
+			this.glGround.anInt5261, 0, 0, hdWater, this.anInt1647, this.textureScale,
+			this.glGround.hdTileMaterialsTexture());
+	try {
+		this.aClass19_Sub2_11.method1967(0, local7, this.aClass64_Sub1_1);
+	} finally {
+		if (hdLighting) {
+			this.aClass19_Sub2_11.hdEndModelLighting();
 		}
-		OpenGL.glMatrixMode(5890);
-		OpenGL.glPushMatrix();
-		OpenGL.glScalef(1.0F / this.textureScale, 1.0F / this.textureScale, 1.0F);
-		OpenGL.glMatrixMode(5888);
-		this.aClass19_Sub2_11.method1934(this.colourDrawBuffer, this.glGround.aClass177_16, this.glGround.aClass177_14, this.glGround.aClass177_15);
-		// 592HD: the terrain is a receiver on its live draw too. This method is
-		// the pass the scene submits every frame (method4029 -> method4034 ->
-		// here, one call per layer); the top-down map bake is GlGround.method4025
-		// and draws its own indices, so it never reaches this method.
-		//
-		// The buffer holds scene units - GlToolkit.createGround builds the pass
-		// with 128 vertices per tile, so x and z are already the coordinates a
-		// model at that spot reports - and the pass draws it under the camera's
-		// own matrices, method1952's rotX(180) * V. Both of the seam's inputs
-		// therefore come from the drawn vertex and the live camera: tile-to-scene
-		// is the identity (the window starts at tile 0 because this pass draws
-		// the whole scene), and scene-to-eye is read from aClass31_Sub1_4.
-		// The caustics row's depth is this layer's own stock value - the byte
-		// Terrain reads per tile for an underwater region and GA passed to the
-		// water effect as depth / 255 - so the pattern is scaled by exactly the
-		// water the client already knows stands here, and a dry tile is DRY.
-		boolean hdLighting = this.aClass19_Sub2_11.hdBeginGroundLighting(this.anInt1647 >= 0,
-			this.glGround.anInt5261, 0, 0, HdGroundWater.of(this.waterDepth), this.anInt1647,
-			this.textureScale, this.glGround.hdTileMaterialsTexture());
-		try {
-			this.aClass19_Sub2_11.method1967(0, local7, this.aClass64_Sub1_1);
-		} finally {
-			if (hdLighting) {
-				this.aClass19_Sub2_11.hdEndModelLighting();
-			}
+		if (hdWaterGround) {
+			// Hand the region's program back the moment this layer has drawn.
+			// Leaving it bound is what made every later water and terrain draw
+			// run a program written for the ground pass, which lost its texture.
+			this.aClass19_Sub2_11.hdEndWaterGround();
 		}
-		OpenGL.glMatrixMode(5890);
-		OpenGL.glPopMatrix();
-		OpenGL.glMatrixMode(5888);
+	}
+	OpenGL.glMatrixMode(5890);
+	OpenGL.glPopMatrix();
+	OpenGL.glMatrixMode(5888);
 	}
 
 	@OriginalMember(owner = "client!dw", name = "a", descriptor = "(IIIZ)V")

@@ -29,7 +29,7 @@ public final class HdWaterTime {
 	/** A single frame longer than this is a stall, not animation: clamp it. */
 	public static final long MAX_STEP_MILLIS = 100L;
 
-	private static long millis;
+	private static float millis;
 
 	private HdWaterTime() {
 	}
@@ -44,7 +44,10 @@ public final class HdWaterTime {
 		if (deltaMillis <= 0L) {
 			return;
 		}
-		millis += Math.min(deltaMillis, MAX_STEP_MILLIS);
+		// The area water sets the clock's rate: the caustics and the ripples
+		// share one clock, as upstream's hdWaterClock.x does, so a slow area
+		// slows both.
+		millis += Math.min(deltaMillis, MAX_STEP_MILLIS) * HdWaterArea.current().speed();
 	}
 
 	/** Animation seconds since the last reset. */
@@ -59,6 +62,6 @@ public final class HdWaterTime {
 
 	/** Test hook: sets the clock to an exact second count. */
 	static void setForTest(float seconds) {
-		millis = (long) (Math.max(0.0F, seconds) * 1000.0F);
+		millis = Math.max(0.0F, seconds) * 1000.0F;
 	}
 }

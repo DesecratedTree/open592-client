@@ -3,6 +3,7 @@ package com.jagex.game.runetek5.client.hd.shader;
 import com.jagex.game.runetek5.client.hd.atmosphere.HdAtmosphere;
 import com.jagex.game.runetek5.client.hd.light.HdEnvironmentLight;
 import com.jagex.game.runetek5.client.hd.light.HdLightFrame;
+import com.jagex.game.runetek5.client.hd.material.HdAreaLight;
 import com.jagex.game.runetek5.client.hd.shadow.ShadowBinding;
 import com.jagex.game.runetek5.client.hd.sway.HdSway;
 
@@ -27,7 +28,7 @@ public final class HdFrameState {
 
 	/** A frame with nothing on: no map, no rows, a full-strength (unused) shadow. */
 	public static final HdFrameState OFF = new HdFrameState(0, null, 1.0F, HdAtmosphere.OFF,
-		HdLightFrame.OFF, HdEnvironmentLight.OFF, HdSway.OFF, 0.0F);
+		HdLightFrame.OFF, HdEnvironmentLight.OFF, HdSway.OFF, 0.0F, HdAreaLight.OFF);
 
 	private final int pointLights;
 
@@ -50,9 +51,16 @@ public final class HdFrameState {
 	 */
 	private final float waterSeconds;
 
+	/**
+	 * The area's own sun and ambient tint, resolved once per frame from
+	 * {@code environments.json}. {@link HdAreaLight#OFF} when the player stands
+	 * in no environment that states one, which is the stock frame.
+	 */
+	private final HdAreaLight areaLight;
+
 	public HdFrameState(int scenePointLights, ShadowBinding shadow, float shadowStrength,
 			HdAtmosphere atmosphere, HdLightFrame lights, HdEnvironmentLight environment, HdSway sway,
-			float waterSeconds) {
+			float waterSeconds, HdAreaLight areaLight) {
 		this.pointLights = HdDrawState.clampPointLights(scenePointLights);
 		this.shadow = shadow;
 		this.shadowStrength = shadowStrength;
@@ -61,6 +69,7 @@ public final class HdFrameState {
 		this.environment = environment == null ? HdEnvironmentLight.OFF : environment;
 		this.sway = sway == null ? HdSway.OFF : sway;
 		this.waterSeconds = waterSeconds;
+		this.areaLight = areaLight == null ? HdAreaLight.OFF : areaLight;
 	}
 
 	/**
@@ -70,49 +79,49 @@ public final class HdFrameState {
 	 */
 	public static HdFrameState of(int scenePointLights) {
 		return new HdFrameState(scenePointLights, null, 1.0F, HdAtmosphere.OFF, HdLightFrame.OFF,
-			HdEnvironmentLight.OFF, HdSway.OFF, 0.0F);
+			HdEnvironmentLight.OFF, HdSway.OFF, 0.0F, HdAreaLight.OFF);
 	}
 
 	public HdFrameState withPointLights(int scenePointLights) {
 		return new HdFrameState(scenePointLights, this.shadow, this.shadowStrength, this.atmosphere,
-			this.lights, this.environment, this.sway, this.waterSeconds);
+			this.lights, this.environment, this.sway, this.waterSeconds, this.areaLight);
 	}
 
 	public HdFrameState withShadow(ShadowBinding shadow) {
 		return new HdFrameState(this.pointLights, shadow, this.shadowStrength, this.atmosphere,
-			this.lights, this.environment, this.sway, this.waterSeconds);
+			this.lights, this.environment, this.sway, this.waterSeconds, this.areaLight);
 	}
 
 	/** The fraction of the sun's shadow that survives the hour; 1 is a full shadow. */
 	public HdFrameState withStrength(float shadowStrength) {
 		return new HdFrameState(this.pointLights, this.shadow, shadowStrength, this.atmosphere,
-			this.lights, this.environment, this.sway, this.waterSeconds);
+			this.lights, this.environment, this.sway, this.waterSeconds, this.areaLight);
 	}
 
 	public HdFrameState withAtmosphere(HdAtmosphere atmosphere) {
 		return new HdFrameState(this.pointLights, this.shadow, this.shadowStrength, atmosphere,
-			this.lights, this.environment, this.sway, this.waterSeconds);
+			this.lights, this.environment, this.sway, this.waterSeconds, this.areaLight);
 	}
 
 	public HdFrameState withLights(HdLightFrame lights) {
 		return new HdFrameState(this.pointLights, this.shadow, this.shadowStrength, this.atmosphere,
-			lights, this.environment, this.sway, this.waterSeconds);
+			lights, this.environment, this.sway, this.waterSeconds, this.areaLight);
 	}
 
 	public HdFrameState withEnvironment(HdEnvironmentLight environment) {
 		return new HdFrameState(this.pointLights, this.shadow, this.shadowStrength, this.atmosphere,
-			this.lights, environment, this.sway, this.waterSeconds);
+			this.lights, environment, this.sway, this.waterSeconds, this.areaLight);
 	}
 
 	public HdFrameState withSway(HdSway sway) {
 		return new HdFrameState(this.pointLights, this.shadow, this.shadowStrength, this.atmosphere,
-			this.lights, this.environment, sway, this.waterSeconds);
+			this.lights, this.environment, sway, this.waterSeconds, this.areaLight);
 	}
 
 	/** The frame's water clock, which the water-driven rows animate on. */
 	public HdFrameState withWaterSeconds(float waterSeconds) {
 		return new HdFrameState(this.pointLights, this.shadow, this.shadowStrength, this.atmosphere,
-			this.lights, this.environment, this.sway, waterSeconds);
+			this.lights, this.environment, this.sway, waterSeconds, this.areaLight);
 	}
 
 	/** The scene's live point lights, already clamped to the shader's slots. */
@@ -147,5 +156,16 @@ public final class HdFrameState {
 
 	public float waterSeconds() {
 		return this.waterSeconds;
+	}
+
+	/** This frame's area sun/ambient tint; {@link HdAreaLight#OFF} when none. */
+	public HdAreaLight areaLight() {
+		return this.areaLight;
+	}
+
+	/** The same frame with the area's own tint, resolved once by the toolkit. */
+	public HdFrameState withAreaLight(HdAreaLight areaLight) {
+		return new HdFrameState(this.pointLights, this.shadow, this.shadowStrength, this.atmosphere,
+			this.lights, this.environment, this.sway, this.waterSeconds, areaLight);
 	}
 }

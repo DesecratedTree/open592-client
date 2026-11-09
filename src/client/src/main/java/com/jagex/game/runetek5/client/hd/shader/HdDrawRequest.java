@@ -6,6 +6,7 @@ import com.jagex.game.runetek5.client.hd.ground.HdGroundTextures;
 import com.jagex.game.runetek5.client.hd.ground.HdGroundWater;
 import com.jagex.game.runetek5.client.hd.light.HdEnvironmentLight;
 import com.jagex.game.runetek5.client.hd.light.HdLightGate;
+import com.jagex.game.runetek5.client.hd.material.HdMaterialSurface;
 import com.jagex.game.runetek5.client.hd.sway.HdSwayGate;
 
 /**
@@ -58,6 +59,15 @@ public final class HdDrawRequest {
 	private final HdGroundTextures groundTextures;
 
 	/**
+	 * The material maps actually bound for this draw, or
+	 * {@link HdMaterialSurface#OFF} when it bound none. The lighting-model row
+	 * says the settings want the model; this says which of its maps exist here,
+	 * so a draw whose material has no maps still takes the term sum with the face
+	 * normal rather than sampling an empty unit.
+	 */
+	private final HdMaterialSurface material;
+
+	/**
 	 * One draw.
 	 *
 	 * @param rows           the rows this draw asks for, by name
@@ -66,7 +76,8 @@ public final class HdDrawRequest {
 	 * @param vegetation     the scene's classification of the model
 	 */
 	public HdDrawRequest(HdDrawRows rows, int textureUnit, int textureCombine, int vegetation) {
-		this(rows, textureUnit, textureCombine, vegetation, HdGroundWater.DRY);
+		this(rows, textureUnit, textureCombine, vegetation, HdGroundWater.DRY, -1, HdGroundTextures.OFF,
+			HdMaterialSurface.OFF);
 	}
 
 	/**
@@ -79,11 +90,13 @@ public final class HdDrawRequest {
 	 */
 	public HdDrawRequest(HdDrawRows rows, int textureUnit, int textureCombine, int vegetation,
 			HdGroundWater water) {
-		this(rows, textureUnit, textureCombine, vegetation, water, -1, HdGroundTextures.OFF);
+		this(rows, textureUnit, textureCombine, vegetation, water, -1, HdGroundTextures.OFF,
+			HdMaterialSurface.OFF);
 	}
 
 	private HdDrawRequest(HdDrawRows rows, int textureUnit, int textureCombine, int vegetation,
-			HdGroundWater water, int materialEffectSlot, HdGroundTextures groundTextures) {
+			HdGroundWater water, int materialEffectSlot, HdGroundTextures groundTextures,
+			HdMaterialSurface material) {
 		this.rows = rows == null ? HdDrawRows.none() : rows;
 		this.textureUnit = textureUnit;
 		this.textureCombine = textureCombine;
@@ -91,6 +104,7 @@ public final class HdDrawRequest {
 		this.water = water == null ? HdGroundWater.DRY : water;
 		this.materialEffectSlot = materialEffectSlot;
 		this.groundTextures = groundTextures == null ? HdGroundTextures.OFF : groundTextures;
+		this.material = material == null ? HdMaterialSurface.OFF : material;
 	}
 
 	/** One draw of a model the scene did not classify: {@code HdVegetation.NONE}. */
@@ -126,6 +140,7 @@ public final class HdDrawRequest {
 			.with(HdDrawRows.Row.WORLD_TEXTURES, HdSettings.value(HdFeature.WORLD_TEXTURES) != 0)
 			.with(HdDrawRows.Row.MATERIAL_MAPS, HdSettings.value(HdFeature.MATERIAL_MAPS) != 0)
 			.with(HdDrawRows.Row.TERRAIN_BLEND, HdSettings.value(HdFeature.TERRAIN_BLEND) != 0)
+			.with(HdDrawRows.Row.LIGHTING_MODEL, HdSettings.value(HdFeature.LIGHTING_MODEL) != 0)
 			.with(primitive);
 		return new HdDrawRequest(rows, textureUnit, textureCombine, vegetation);
 	}
@@ -133,35 +148,35 @@ public final class HdDrawRequest {
 	/** The same draw with rows turned on, by name. */
 	public HdDrawRequest with(HdDrawRows.Row... rows) {
 		return new HdDrawRequest(this.rows.with(rows), this.textureUnit, this.textureCombine, this.vegetation,
-			this.water, this.materialEffectSlot, this.groundTextures);
+			this.water, this.materialEffectSlot, this.groundTextures, this.material);
 	}
 
 	/** The same draw with rows turned off, by name. */
 	public HdDrawRequest without(HdDrawRows.Row... rows) {
 		return new HdDrawRequest(this.rows.without(rows), this.textureUnit, this.textureCombine, this.vegetation,
-			this.water, this.materialEffectSlot, this.groundTextures);
+			this.water, this.materialEffectSlot, this.groundTextures, this.material);
 	}
 
 	public HdDrawRequest withTextureUnit(int textureUnit) {
 		return new HdDrawRequest(this.rows, textureUnit, this.textureCombine, this.vegetation, this.water,
-			this.materialEffectSlot, this.groundTextures);
+			this.materialEffectSlot, this.groundTextures, this.material);
 	}
 
 	public HdDrawRequest withTextureCombine(int textureCombine) {
 		return new HdDrawRequest(this.rows, this.textureUnit, textureCombine, this.vegetation, this.water,
-			this.materialEffectSlot, this.groundTextures);
+			this.materialEffectSlot, this.groundTextures, this.material);
 	}
 
 	/** The same draw with the water standing over its tile; terrain's only setter. */
 	public HdDrawRequest withWater(HdGroundWater water) {
 		return new HdDrawRequest(this.rows, this.textureUnit, this.textureCombine, this.vegetation, water,
-			this.materialEffectSlot, this.groundTextures);
+			this.materialEffectSlot, this.groundTextures, this.material);
 	}
 
 	/** The same draw with the material's stock texture-effect slot; the model seam's setter. */
 	public HdDrawRequest withMaterialEffectSlot(int materialEffectSlot) {
 		return new HdDrawRequest(this.rows, this.textureUnit, this.textureCombine, this.vegetation, this.water,
-			materialEffectSlot, this.groundTextures);
+			materialEffectSlot, this.groundTextures, this.material);
 	}
 
 	/** The named rows this draw asks for. */
@@ -183,6 +198,16 @@ public final class HdDrawRequest {
 
 	public boolean hasNormals() {
 		return this.rows.has(HdDrawRows.Row.NORMALS);
+	}
+
+	/**
+	 * True when this draw's texture alpha is coverage rather than a strength
+	 * mask: the fragment stage keeps the sampled alpha. Off writes alpha 1, so
+	 * a reflective material - whose alpha holds the specular strength - stays
+	 * opaque instead of letting its mask punch it see-through.
+	 */
+	public boolean alphaCoverage() {
+		return this.rows.has(HdDrawRows.Row.ALPHA_COVERAGE);
 	}
 
 	public boolean textured() {
@@ -278,6 +303,22 @@ public final class HdDrawRequest {
 	/** The same draw with its ground-texture state; the terrain seam's setter. */
 	public HdDrawRequest withGroundTextures(HdGroundTextures textures) {
 		return new HdDrawRequest(this.rows, this.textureUnit, this.textureCombine, this.vegetation, this.water,
-			this.materialEffectSlot, textures);
+			this.materialEffectSlot, textures, this.material);
+	}
+
+	/** True when this draw takes the lighting model's term sum. */
+	public boolean lightingModel() {
+		return this.rows.has(HdDrawRows.Row.LIGHTING_MODEL);
+	}
+
+	/** The material maps bound for this draw; {@link HdMaterialSurface#OFF} when none. */
+	public HdMaterialSurface material() {
+		return this.material;
+	}
+
+	/** The same draw with its material maps; the model and terrain seams' setter. */
+	public HdDrawRequest withMaterial(HdMaterialSurface material) {
+		return new HdDrawRequest(this.rows, this.textureUnit, this.textureCombine, this.vegetation, this.water,
+			this.materialEffectSlot, this.groundTextures, material);
 	}
 }

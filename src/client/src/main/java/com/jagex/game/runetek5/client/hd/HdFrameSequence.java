@@ -15,12 +15,15 @@ import com.jagex.game.runetek5.graphics.gl.GlToolkit;
  * the background and before the world: the receivers it shadows are drawn by
  * that world pass, and a map built after them would be a frame late. This
  * class is the policy for both calls so the deob method keeps one line each.
- *
- * <p>Every entry point is false when 592HD is off, the stage's row is off, or
- * the drawing toolkit is not OpenGL; {@link GlToolkit#hdSkyFrame()} makes no GL
- * call in any of those cases, so the stock frame is untouched rather than
- * nearly untouched.
- */
+ *	 * <p>Every entry point is false when 592HD is off, the stage's row is off, or
+	 * the drawing toolkit is not OpenGL; {@link GlToolkit#hdSkyFrame()} makes no GL
+	 * call in any of those cases, so the stock frame is untouched rather than
+	 * nearly untouched.
+	 *
+	 * <p>The screen-space pass is the one stage at the *end* of the world draw
+	 * rather than the beginning: it reads the finished scene, and running it
+	 * before the interface is what keeps its bloom and tone curve off the UI.
+	 */
 public final class HdFrameSequence {
 
 	private HdFrameSequence() {
@@ -128,6 +131,11 @@ public final class HdFrameSequence {
 		submission.exitScene();
 		if (!submission.sceneOpen()) {
 			toolkit.hdShadowSceneEnd();
+			// The interface is drawn next. A world primitive releases the lit
+			// program and its sampler units when it ends, but one that returns
+			// early leaves them for the interface to draw with, so the seam is
+			// closed here rather than trusted.
+			toolkit.hdEndWorldEffects();
 		}
 	}
 }

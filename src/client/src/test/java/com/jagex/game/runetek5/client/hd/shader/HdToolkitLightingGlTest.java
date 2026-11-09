@@ -81,7 +81,7 @@ class HdToolkitLightingGlTest {
 	private static final int TOLERANCE = 3;
 
 	/** {@code GL_MODULATE}. */
-	private static final int GL_MODULATE = 7681;
+	private static final int GL_MODULATE = 8448;
 
 	/** Far-plane distance; {@code UA} measures the fog band back from here. */
 	private static final int FAR = 3584;

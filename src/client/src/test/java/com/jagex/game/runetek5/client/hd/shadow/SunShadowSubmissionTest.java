@@ -90,6 +90,43 @@ class SunShadowSubmissionTest {
 	}
 
 	@Test
+	@DisplayName("the map covers where the casters were recorded, not where the eye is now")
+	void beginFrame_shouldCentreTheVolumeOnTheCameraTheCastersWereRecordedFrom() {
+		SunShadowSubmission submission = new SunShadowSubmission();
+		// Frame n: the seam centres on camera C, then the world draw records what
+		// it drew, placed from that same camera.
+		submission.beginFrame(100.0F, 0.0F, 200.0F);
+		submission.record(ShadowCaster.at(110.0F, 0.0F, 205.0F, NOTHING).modelToScene(), NOTHING);
+		// Frame n + 1: the eye has moved 60 units. Those casters are this pass's,
+		// and they were placed with C, so the volume must stay on C.
+		submission.beginFrame(160.0F, 0.0F, 260.0F);
+
+		assertAll(
+			() -> assertEquals(1L, submission.recorded(), "the previous world draw's caster"),
+			() -> assertEquals(100.0F, submission.volume().centreX(),
+				"a volume centred on the new camera would slide every shadow with the eye"),
+			() -> assertEquals(0.0F, submission.volume().centreY()),
+			() -> assertEquals(200.0F, submission.volume().centreZ()),
+			() -> assertEquals(ShadowVolume.DEFAULT_RADIUS, submission.volume().radius())
+		);
+	}
+
+	@Test
+	@DisplayName("an empty map centres on this frame's camera, so the next frame's casters land inside it")
+	void beginFrame_withNoRecordedCasters_shouldCentreOnThisFramesCamera() {
+		SunShadowSubmission submission = new SunShadowSubmission();
+		submission.beginFrame(10.0F, 4.0F, 20.0F);
+		submission.beginFrame(160.0F, 8.0F, 260.0F);
+
+		assertAll(
+			() -> assertEquals(0L, submission.recorded(), "nothing was drawn to carry over"),
+			() -> assertEquals(160.0F, submission.volume().centreX()),
+			() -> assertEquals(8.0F, submission.volume().centreY()),
+			() -> assertEquals(260.0F, submission.volume().centreZ())
+		);
+	}
+
+	@Test
 	@DisplayName("nested world draws share the frame and only the outermost closes it")
 	void scene_shouldCountNestedWorldDraws() {
 		SunShadowSubmission submission = new SunShadowSubmission();

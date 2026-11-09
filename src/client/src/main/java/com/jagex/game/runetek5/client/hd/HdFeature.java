@@ -84,20 +84,19 @@ public enum HdFeature {
 	 * sky/ground hemisphere, the occlusion map and roughness highlights - after
 	 * 634HD's {@code lightingModel}.
 	 *
-	 * <p>It is not honoured, and the blocker is content rather than shader code.
-	 * 634HD takes the surface response from its material maps (normal,
-	 * occlusion/roughness, emissive, height); this client has none, and
-	 * {@code MaterialType} - the only material record the cache carries - holds
-	 * texture-generation parameters, with no specular strength, exponent or
-	 * roughness anywhere in it (see that class's documentation). The fixed
-	 * "specular" this client does have is the stock environment cube map, a
-	 * reflection selected by a texture effect, not a per-material response to
-	 * the sun. A highlight built here today would have to invent both a strength
-	 * and an exponent, so the row stays stored and marked instead; it is
-	 * unblocked by {@link #MATERIAL_MAPS} and the content behind it, not by a
-	 * renderer-only change.
+	 * <p>Live: the surface response comes from 634HD's own material maps, which
+	 * Stage 1 imports from {@code materials.json} and its shipped PNGs - normal,
+	 * the packed occlusion/roughness/emissive map, and height. They are decoded
+	 * once per material and bound on their own texture units, so this row does
+	 * not read anything out of {@code MaterialType} (which holds
+	 * texture-generation parameters, not a light response).
+	 *
+	 * <p>The upstream differences this client records rather than hides: the
+	 * shipped height maps carry no height channel, so parallax is wired but
+	 * offsets nothing; and an area's sun pitch/yaw is not applied to the sun's
+	 * direction (the scene's own sun stands), only its sun and ambient tint.
 	 */
-	LIGHTING_MODEL("lightingModel", HdTab.LIGHTING, "Lighting model", HdStockTarget.RENDERER, HdSupport.PENDING_RENDERER, false,
+	LIGHTING_MODEL("lightingModel", HdTab.LIGHTING, "Lighting model", HdStockTarget.RENDERER, HdSupport.READY, false,
 		"Off", "On"),
 
 	/**
@@ -247,27 +246,22 @@ public enum HdFeature {
 
 	/**
 	 * Replacement albedo art, ported from 634HD's {@code textureReplacements}:
-	 * a cached world texture drawn from a newer authored image. This client
-	 * ships no replacement set and has nowhere to load one from, so the row is
-	 * inert rather than half-wired.
+	 * a cached world texture drawn from the shipped authored image
+	 * ({@code 634hd/materials/<texture>/albedo.png}). The stock texture upload and
+	 * the world-texture page both take it through
+	 * {@code HdTextureReplacements.applied}, which keeps the game texture's own
+	 * alpha - cut-outs and masks stay where the cache put them. Off is the game's
+	 * own array, by reference, so the row cannot change a texel it does not own.
 	 */
-	TEXTURE_REPLACEMENTS("textureReplacements", HdTab.WORLD, "Texture replacements", HdStockTarget.RENDERER, HdSupport.UNAVAILABLE, false,
+	TEXTURE_REPLACEMENTS("textureReplacements", HdTab.WORLD, "Texture replacements", HdStockTarget.RENDERER, HdSupport.READY, false,
 		"Off", "On"),
 
 	/**
-	 * The client's water presence, kept only to mirror upstream's row list. This
-	 * client has no switch that suppresses water and no second stock mode: it
-	 * always draws its own water, and the working upgrade is {@link #WATER_HD}.
-	 * Both values do nothing, so the row is marked n/a rather than pending - there
-	 * is no renderer work that would make Off mean anything.
-	 */
-	WATER("water", HdTab.WORLD, "Water", HdStockTarget.RENDERER, HdSupport.UNAVAILABLE, false,
-		"Always"),
-
-	/**
-	 * The 592HD water program in the stock water effect slot. Off is the stock
-	 * water draw, pixel for pixel: the renderer reads this live, and the stock
-	 * selection runs untouched while it is off.
+	 * Water, the row upstream's {@code client.hd.water} setting is: 0 as the game
+	 * draws it, 1 the game's water under the HD steps, 2 the port's own surface -
+	 * the same three values 634HD's setting takes. Off is the stock water draw,
+	 * pixel for pixel: the renderer reads this live, and the stock selection runs
+	 * untouched while it is off.
 	 *
 	 * <p>Coverage is the calm-water slot ({@code StillWaterEffect}), the reflective
 	 * water type ({@code ReflectiveRipplingWaterEffect}'s stock effect slot) and
@@ -297,9 +291,11 @@ public enum HdFeature {
 	 * capability - the reflective and breaking water types keep their own
 	 * programs whatever the value, because those belong to the material and not
 	 * to the surface, and a driver that refuses the custom program falls back to
-	 * the standard surface.
+	 * the standard surface. Upstream spends its third value on 117HD's own
+	 * surface; this port has no water-body pass, so its third value selects the
+	 * surface program it does have rather than being a value that does nothing.
 	 */
-	WATER_HD("waterHd", HdTab.WORLD, "592HD water", HdStockTarget.RENDERER, HdSupport.READY, false,
+	WATER("water", HdTab.WORLD, "Water", HdStockTarget.RENDERER, HdSupport.READY, false,
 		"Off", "On", "Custom"),
 
 	/**

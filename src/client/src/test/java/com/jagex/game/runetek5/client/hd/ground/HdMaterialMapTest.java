@@ -225,13 +225,38 @@ class HdMaterialMapTest {
 	}
 
 	@Test
-	@DisplayName("the atlas coordinate lands in the middle of the material's texel")
-	void atlasCoordinate_shouldHitTheTexelCentre() {
+	@DisplayName("the id map is a square of texels, one per 16-bit id")
+	void atlasCoordinates_shouldHitEachIdsOwnTexel() {
 		assertAll(
-			() -> assertEquals(0.5F / HdMaterialMap.MATERIALS, HdMaterialMap.atlasCoordinate(0)),
-			() -> assertEquals(17.5F / HdMaterialMap.MATERIALS, HdMaterialMap.atlasCoordinate(17)),
-			() -> assertEquals((HdMaterialMap.MATERIALS - 0.5F) / HdMaterialMap.MATERIALS,
-				HdMaterialMap.atlasCoordinate(HdMaterialMap.MATERIALS - 1))
+			() -> assertEquals(HdMaterialMap.MATERIALS, HdMaterialMap.WIDTH * HdMaterialMap.HEIGHT,
+				"every id has a texel"),
+			() -> assertEquals(0.5F / HdMaterialMap.WIDTH, HdMaterialMap.atlasX(0)),
+			() -> assertEquals(0.5F / HdMaterialMap.HEIGHT, HdMaterialMap.atlasY(0)),
+			() -> assertEquals(17.5F / HdMaterialMap.WIDTH, HdMaterialMap.atlasX(17)),
+			() -> assertEquals((17.5F / HdMaterialMap.WIDTH),
+				HdMaterialMap.atlasX(17 + HdMaterialMap.WIDTH), "the next row repeats u"),
+			() -> assertEquals(1.5F / HdMaterialMap.HEIGHT,
+				HdMaterialMap.atlasY(17 + HdMaterialMap.WIDTH), "and moves v by one texel"),
+			() -> assertEquals((HdMaterialMap.WIDTH - 0.5F) / HdMaterialMap.WIDTH,
+				HdMaterialMap.atlasX(HdMaterialMap.MATERIALS - 1))
+		);
+	}
+
+	@Test
+	@DisplayName("a material above 255 is admitted: a live region draws 408")
+	void register_shouldAdmitMaterialsPastAByte() {
+		HdMaterialMap map = new HdMaterialMap();
+		int cell = map.register(408, material(7, 9), ANY_ART);
+
+		assertAll(
+			() -> assertEquals(0, cell, "the first cell, not a refusal"),
+			() -> assertEquals(0, map.cellOf(408)),
+			() -> assertEquals(7, map.brightnessOf(408)),
+			() -> assertEquals(9, map.blendOf(408)),
+			() -> assertEquals(1, map.pixel(408) >> 16 & 0xFF,
+				"and its id texel points at the cell"),
+			() -> assertEquals(HdMaterialMap.NO_CELL, map.cellOf(408 & 0xFF),
+				"the truncated id (152) must not be given the same cell")
 		);
 	}
 

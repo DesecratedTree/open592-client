@@ -11,3 +11,6 @@ launcher/src-tauri/gen/
 /gradle
 gradlew
 gradlew.bat
+
+# Read-only reference clone of 2011Scape/634-client (upstream 634HD + plugin system)
+.634-client-ref/

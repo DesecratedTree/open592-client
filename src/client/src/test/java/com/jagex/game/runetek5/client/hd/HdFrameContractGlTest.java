@@ -125,7 +125,7 @@ class HdFrameContractGlTest {
 	private static final int TERRAIN_MATERIAL = 2;
 
 	/** The stock texture-effect enum whose combine is {@code GL_MODULATE}. */
-	private static final int MODULATE_EFFECT = 1;
+	private static final int MODULATE_EFFECT = 0;
 
 	/** The material's art: pure red, so no lighting term can turn it grey. */
 	private static final int TERRAIN_ART = 0xFF0000;
@@ -313,7 +313,7 @@ class HdFrameContractGlTest {
 		}
 		HdSettings.set(HdFeature.PER_PIXEL_LIGHTING, 1);
 		HdSettings.set(HdFeature.SHADOW_MAP, 2);
-		HdSettings.set(HdFeature.WATER_HD, 1);
+		HdSettings.set(HdFeature.WATER, 1);
 		for (HdFeature feature : new HdFeature[] { HdFeature.POINT_LIGHTS,
 				HdFeature.DISTANCE_FADE, HdFeature.AMBIENT_OCCLUSION, HdFeature.CARRIED_LIGHT,
 				HdFeature.ROOM_LIGHT, HdFeature.ENVIRONMENT_LIGHTING, HdFeature.CAUSTICS,
@@ -1004,7 +1004,7 @@ class HdFrameContractGlTest {
 		toolkit.method1918(false);
 		toolkit.method1906(false);
 		toolkit.setActiveTexture(null);
-		toolkit.method1900(1);
+		toolkit.method1900(0);
 		toolkit.method1930();
 		snapshot(run, "start");
 

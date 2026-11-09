@@ -31,8 +31,15 @@ import com.jagex.game.runetek5.config.material.MaterialType;
  */
 public final class HdMaterialMap {
 
-	/** Material ids a 592 cache can address; the map is one texel each. */
-	public static final int MATERIALS = 256;
+	/**
+	 * Material ids the map covers: the client's ids are 16-bit
+	 * ({@code aShortArray107} is read as {@code & 0xFFFF}) and a live 592 region
+	 * logs materials 408, 181 and 66. The map was 256 ids wide, so every material
+	 * above 255 was refused a cell by arithmetic alone - and the tile map packed
+	 * ids into bytes too, so the fragment looked up a rewritten id and blended
+	 * another material's cell in. That is a ground tile losing its texture.
+	 */
+	public static final int MATERIALS = 65536;
 
 	/** The value {@link #cellOf(int)} reports for a material that has no cell. */
 	public static final int NO_CELL = -1;
@@ -68,10 +75,15 @@ public final class HdMaterialMap {
 	};
 
 	/**
-	 * The map's row width; one texel per material id. The shader samples it with
-	 * {@code (id + 0.5) / MATERIALS} so each id lands in the middle of its texel.
+	 * Ids per row. The map is a square of id texels - 256 x 256 for 65536 ids -
+	 * because no this context's texture may be 65536 texels wide. The shader
+	 * samples id {@code n} at {@code (n % WIDTH, n / WIDTH)}, texel centres, so
+	 * each id lands in the middle of its own texel.
 	 */
-	public static final int WIDTH = MATERIALS;
+	public static final int WIDTH = 256;
+
+	/** Rows: {@code MATERIALS / WIDTH}. */
+	public static final int HEIGHT = MATERIALS / WIDTH;
 
 	private final int[] cells = new int[MATERIALS];
 
@@ -220,6 +232,39 @@ public final class HdMaterialMap {
 		return coldest;
 	}
 
+	/**
+	 * Gives a material's cell back because the page could not fill it.
+	 *
+	 * <p>{@link #register} asks the art test before it publishes a cell, but the
+	 * page is built later - and a material whose art does not answer at that
+	 * moment would leave its published cell holding zeroes. A zeroed cell is
+	 * black with alpha zero, which the ground pass' {@code GREATER} alpha test
+	 * discards: no colour, no depth, and the tile behind it shows through. That
+	 * is one material's ground losing its texture while the material beside it
+	 * draws, so the page reports such a cell here and the material keeps the
+	 * stock single-texture draw, exactly as a material the map never held.
+	 *
+	 * <p>The version moves, so the map texture uploaded by this same build no
+	 * longer points at the cell, and the material is probed again on a later
+	 * draw - which is how art that streams in late reaches the page.
+	 *
+	 * @return true when the material held a cell and gave it back
+	 */
+	public boolean release(int material) {
+		if (material < 0 || material >= MATERIALS || this.cells[material] == 0) {
+			return false;
+		}
+		int cell = this.cells[material] - 1;
+		this.cells[material] = 0;
+		this.brightness[material] = 0;
+		this.blend[material] = 0;
+		if (this.owners[cell] == material) {
+			this.owners[cell] = -1;
+		}
+		this.version++;
+		return true;
+	}
+
 	/** The cell this material holds, or {@link #NO_CELL}. */
 	public int cellOf(int material) {
 		if (material < 0 || material >= MATERIALS) {
@@ -307,11 +352,23 @@ public final class HdMaterialMap {
 	}
 
 	/**
-	 * The atlas coordinate the shader samples for one material id: the middle of
-	 * the map's texel, so filtering cannot slide onto a neighbouring id.
+	 * The id map's u for one material: the middle of its texel, so filtering
+	 * cannot slide onto a neighbouring id.
 	 */
-	public static float atlasCoordinate(int material) {
-		return (Math.max(0, material) + 0.5F) / MATERIALS;
+	public static float atlasX(int material) {
+		return (clampId(material) % WIDTH + 0.5F) / WIDTH;
+	}
+
+	/** The id map's v for one material: the row its id falls in, texel-centred. */
+	public static float atlasY(int material) {
+		return (clampId(material) / WIDTH + 0.5F) / HEIGHT;
+	}
+
+	private static int clampId(int material) {
+		if (material < 0) {
+			return 0;
+		}
+		return material < MATERIALS ? material : MATERIALS - 1;
 	}
 
 	/**

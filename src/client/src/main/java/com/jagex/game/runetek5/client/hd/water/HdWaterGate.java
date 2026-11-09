@@ -11,7 +11,7 @@ import com.jagex.game.runetek5.client.hd.HdSettings;
  * a truth table. In order:
  *
  * <ol>
- * <li>592HD must be enabled and the "592HD water" row on - Off means the stock
+ * <li>592HD must be enabled and the Water row on - Off means the stock
  * water effect is selected exactly as before, with no GL call from this
  * package;</li>
  * <li>the program must have linked - a driver that refuses the shader falls
@@ -93,19 +93,33 @@ public final class HdWaterGate {
 	 */
 	public static final int BREAKING_SLOT = 9;
 
+	/**
+	 * The stock effect slot {@code StillWaterEffect} occupies: the plain water
+	 * type, and the one a lake, a river or the ocean carries in an ordinary
+	 * region.
+	 */
+	public static final int STILL_SLOT = 3;
+
+	/**
+	 * The stock slot the manager substitutes for the reflective type when the
+	 * driver refuses that effect. It samples the same water texture, so it is
+	 * water too.
+	 */
+	public static final int STILL_FALLBACK_SLOT = 4;
+
 	private HdWaterGate() {
 	}
 
 	/**
 	 * True when the stored settings ask for HD water at all.
 	 *
-	 * <p>The gate is the pane's "592HD water" row, not its "Water" row: the
-	 * latter says whether the client draws water at all (Off/Game) and belongs
-	 * to the stock effect, while this row is the upgrade. Off here is the stock
-	 * draw, which is exactly what the row promises.
+	 * <p>The gate is the pane's Water row, upstream's {@code client.hd.water}
+	 * key: Off is the stock draw, exactly what the row promises, and its other
+	 * two values are the game's water under the HD steps and the custom
+	 * surface.
 	 */
 	public static boolean requested() {
-		return requested(HdSettings.isEnabled(), HdSettings.value(HdFeature.WATER_HD) != 0);
+		return requested(HdSettings.isEnabled(), HdSettings.value(HdFeature.WATER) != 0);
 	}
 
 	/** The one settings predicate; every caller delegates here. */
@@ -115,7 +129,7 @@ public final class HdWaterGate {
 
 	/** True when the stored row selects the custom surface. */
 	public static boolean custom() {
-		return custom(HdSettings.isEnabled(), HdSettings.value(HdFeature.WATER_HD));
+		return custom(HdSettings.isEnabled(), HdSettings.value(HdFeature.WATER));
 	}
 
 	/**
@@ -151,6 +165,19 @@ public final class HdWaterGate {
 			return shouldBreak(request, stillAvailable, breakingAvailable) ? Surface.BREAKING : Surface.STILL;
 		}
 		return request.custom() && customAvailable ? Surface.CUSTOM : Surface.STILL;
+	}
+
+	/**
+	 * True when that effect slot names water at all.
+	 *
+	 * <p>{@link #STILL_SLOT}, {@link #STILL_FALLBACK_SLOT},
+	 * {@link #REFLECTIVE_SLOT} and {@link #BREAKING_SLOT} are the stock water
+	 * types. Everything else - the specular, ripple and waterfall effects - is
+	 * not water, and a ground layer carrying it keeps the client's own draw.
+	 */
+	public static boolean isWaterMaterial(int effectSlot) {
+		return effectSlot == STILL_SLOT || effectSlot == STILL_FALLBACK_SLOT
+			|| effectSlot == REFLECTIVE_SLOT || effectSlot == BREAKING_SLOT;
 	}
 
 	/** True when a material's stock effect slot names the reflective water type. */

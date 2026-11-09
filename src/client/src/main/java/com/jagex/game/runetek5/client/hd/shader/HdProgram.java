@@ -3,6 +3,8 @@ package com.jagex.game.runetek5.client.hd.shader;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.jagex.game.runetek5.client.hd.water.HdWaterSource;
+
 /**
  * A linked GLSL program plus its uniform locations.
  *
@@ -31,6 +33,20 @@ public final class HdProgram {
 
 	private final int tileMaterialsLocation;
 
+	private final int materialNormalLocation;
+
+	private final int materialOrmLocation;
+
+	private final int materialEmissiveLocation;
+
+	private final int materialHeightLocation;
+
+	private final int waterNormalLocation;
+
+	private final int waterFoamLocation;
+
+	private final int waterFlowLocation;
+
 	HdProgram(HdShaderApi api, long handle) {
 		this.api = api;
 		this.handle = handle;
@@ -45,6 +61,20 @@ public final class HdProgram {
 			: api.uniformLocation(handle, HdShaderSource.UNIFORM_MATERIAL_ID_MAP);
 		this.tileMaterialsLocation = handle == 0L ? -1
 			: api.uniformLocation(handle, HdShaderSource.UNIFORM_TILE_MATERIALS);
+		this.materialNormalLocation = handle == 0L ? -1
+			: api.uniformLocation(handle, HdShaderSource.UNIFORM_MATERIAL_NORMAL);
+		this.materialOrmLocation = handle == 0L ? -1
+			: api.uniformLocation(handle, HdShaderSource.UNIFORM_MATERIAL_ORM);
+		this.materialEmissiveLocation = handle == 0L ? -1
+			: api.uniformLocation(handle, HdShaderSource.UNIFORM_MATERIAL_EMISSIVE);
+		this.materialHeightLocation = handle == 0L ? -1
+			: api.uniformLocation(handle, HdShaderSource.UNIFORM_MATERIAL_HEIGHT);
+		this.waterNormalLocation = handle == 0L ? -1
+			: api.uniformLocation(handle, HdWaterSource.UNIFORM_WATER_NORMAL);
+		this.waterFoamLocation = handle == 0L ? -1
+			: api.uniformLocation(handle, HdWaterSource.UNIFORM_WATER_FOAM);
+		this.waterFlowLocation = handle == 0L ? -1
+			: api.uniformLocation(handle, HdWaterSource.UNIFORM_WATER_FLOW);
 	}
 
 	public long handle() {
@@ -95,6 +125,23 @@ public final class HdProgram {
 	}
 
 	/**
+	 * Binds 634HD's three water maps to their own units, once per program like
+	 * every other sampler here. A water program owns the frame while it is
+	 * bound, so the units cannot collide with the ground or material passes.
+	 */
+	public void bindWaterSamplers() {
+		if (this.waterNormalLocation >= 0) {
+			this.api.uniform1i(this.waterNormalLocation, HdWaterSource.WATER_NORMAL_UNIT);
+		}
+		if (this.waterFoamLocation >= 0) {
+			this.api.uniform1i(this.waterFoamLocation, HdWaterSource.WATER_FOAM_UNIT);
+		}
+		if (this.waterFlowLocation >= 0) {
+			this.api.uniform1i(this.waterFlowLocation, HdWaterSource.WATER_FLOW_UNIT);
+		}
+	}
+
+	/**
 	 * Binds the ground pass' three textures to their own units. Like the other
 	 * samplers they are selected once per program: the units never change, only
 	 * which texture is on them, and a unit left unpicked would collide with the
@@ -109,6 +156,26 @@ public final class HdProgram {
 		}
 		if (this.tileMaterialsLocation >= 0) {
 			this.api.uniform1i(this.tileMaterialsLocation, HdShaderSource.SAMPLER_UNIT_TILE_MATERIALS);
+		}
+	}
+
+	/**
+	 * Binds the four material-map samplers to their own units, once per program
+	 * like every other sampler here. The units never change; only which texture
+	 * sits on them does, and the seam binds those per draw.
+	 */
+	public void bindMaterialSamplers() {
+		if (this.materialNormalLocation >= 0) {
+			this.api.uniform1i(this.materialNormalLocation, HdShaderSource.SAMPLER_UNIT_MATERIAL_NORMAL);
+		}
+		if (this.materialOrmLocation >= 0) {
+			this.api.uniform1i(this.materialOrmLocation, HdShaderSource.SAMPLER_UNIT_MATERIAL_ORM);
+		}
+		if (this.materialEmissiveLocation >= 0) {
+			this.api.uniform1i(this.materialEmissiveLocation, HdShaderSource.SAMPLER_UNIT_MATERIAL_EMISSIVE);
+		}
+		if (this.materialHeightLocation >= 0) {
+			this.api.uniform1i(this.materialHeightLocation, HdShaderSource.SAMPLER_UNIT_MATERIAL_HEIGHT);
 		}
 	}
 }

@@ -3,6 +3,7 @@ package com.jagex.game.runetek5.client.hd.ground;
 import static com.jagex.game.runetek5.client.hd.ground.HdMaterialMap.ANY_ART;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 
@@ -112,6 +113,34 @@ class HdWorldPageTest {
 				: " uploads with its alpha, so the page keeps it") + ": " + hex(page, 0));
 	}
 
+	@Test
+	@DisplayName("a material whose art does not answer gives its cell back instead of leaving a hole")
+	void pixels_shouldReleaseACellItCannotFill() {
+		// The map publishes a cell when the art test says the page can fill it, but
+		// the page is built later. An art that does not answer at build time would
+		// otherwise leave a published cell holding zeroes - alpha 0, which the
+		// ground pass' GREATER test discards. That is one material's ground losing
+		// its texture while the material beside it draws, so the map must stop
+		// pointing at a cell the page could not fill and let it draw stock.
+		HdMaterialMap map = new HdMaterialMap();
+		StubMaterials materials = new StubMaterials();
+		materials.answerArt = false;
+		assertEquals(0, map.register(2, new MaterialType(), ANY_ART), "the map publishes a cell");
+		int version = map.version();
+
+		int[] page = HdWorldPage.pixels(map, materials);
+
+		assertAll(
+			() -> assertEquals(HdMaterialMap.NO_CELL, map.cellOf(2),
+				"the map must stop publishing a cell the page cannot fill"),
+			() -> assertEquals(0, page[cellAt(0)], "the cell stays empty rather than half-filled"),
+			() -> assertTrue(map.version() != version, "the id map is rebuilt to match"),
+			() -> assertEquals(0, map.pixel(2) >> 16 & 0xFF,
+				"the shader reads no cell for it, so it draws its stock texture"),
+			() -> assertEquals(HdMaterialMap.NO_CELL, map.cellOf(3),
+				"and a material the page never held is untouched"));
+	}
+
 	/** The page texel at a cell, as the failure messages print it. */
 	private static String hex(int[] page, int cell) {
 		return String.format("#%08X", page[cellAt(cell)]);
@@ -131,6 +160,9 @@ class HdWorldPageTest {
 		/** aByte89, the texture-effect slot; 1 and 7 are the ones stock keeps alpha for. */
 		private int effectSlot = 2;
 
+		/** False when the sampler has no art to answer with yet, as a late stream does. */
+		private boolean answerArt = true;
+
 		@Override
 		public MaterialType getMetrics(int material) {
 			MaterialType type = new MaterialType();
@@ -142,7 +174,7 @@ class HdWorldPageTest {
 
 		@Override
 		public boolean textureAvailable(int material) {
-			return material == 2 || material == 3;
+			return this.answerArt && (material == 2 || material == 3);
 		}
 
 		@Override

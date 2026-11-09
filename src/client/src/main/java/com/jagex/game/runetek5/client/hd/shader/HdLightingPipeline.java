@@ -8,6 +8,8 @@ import com.jagex.game.runetek5.client.hd.light.HdLightSource;
 import com.jagex.game.runetek5.client.hd.light.HdRoomLight;
 import com.jagex.game.runetek5.client.hd.ground.HdGroundTextures;
 import com.jagex.game.runetek5.client.hd.ground.HdTileMaterialMap;
+import com.jagex.game.runetek5.client.hd.material.HdAreaLight;
+import com.jagex.game.runetek5.client.hd.material.HdMaterialSurface;
 import com.jagex.game.runetek5.client.hd.reflect.HdReflection;
 import com.jagex.game.runetek5.client.hd.shadow.ShadowBinding;
 import com.jagex.game.runetek5.client.hd.sway.HdSway;
@@ -144,6 +146,25 @@ public final class HdLightingPipeline {
 
 	private long groundTextureUploads;
 
+	/**
+	 * The lighting model's uniforms: the row, which maps the draw bound, the
+	 * material's own response, and the area's sun/ambient tint. Every one of them
+	 * is zero at GL's initial value (the identity), so a frame that never uses the
+	 * row uploads nothing and a row that goes off uploads exactly the one flag
+	 * that takes it back out.
+	 */
+	private int uploadedLightingModel = -1;
+
+	private float[] uploadedMaterialFlags;
+
+	private float[] uploadedMaterialSurface;
+
+	private int uploadedAreaEnabled = -1;
+
+	private HdAreaLight uploadedArea = HdAreaLight.OFF;
+
+	private long materialUploads;
+
 	private final float[] identity = { 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F, 0.0F, 0.0F,
 		0.0F, 0.0F, 1.0F, 0.0F, 0.0F, 0.0F, 0.0F, 1.0F };
 
@@ -251,11 +272,13 @@ public final class HdLightingPipeline {
 			// or not.
 			this.program.bindReflectionSampler();
 			this.program.bindGroundSamplers();
+			this.program.bindMaterialSamplers();
 			this.samplerBound = true;
 		}
 		HdDrawState state = HdLightingGate.drawState(request, values.pointLights(), values.shadow());
 		if (this.uploaded == null || !this.uploaded.equals(state)) {
 			this.api.uniform1i(this.program.uniform(HdShaderSource.UNIFORM_TEXTURED), state.textured() ? 1 : 0);
+			this.api.uniform1i(this.program.uniform(HdShaderSource.UNIFORM_ALPHA_COVERAGE), state.alphaCoverage() ? 1 : 0);
 			this.api.uniform1i(this.program.uniform(HdShaderSource.UNIFORM_POINT_LIGHTS), state.pointLights());
 			this.uploaded = state;
 		}
@@ -299,6 +322,7 @@ public final class HdLightingPipeline {
 		uploadCaustics(request, values.waterSeconds());
 		uploadReflection(request);
 		uploadGroundTextures(request);
+		uploadMaterial(request, values);
 		if (state.shadowEnabled()) {
 			uploadShadowEnabled(state.shadowRadius(), values.shadowStrength());
 			ShadowBinding shadow = values.shadow();
@@ -593,6 +617,75 @@ public final class HdLightingPipeline {
 		return this.groundTextureUploads;
 	}
 
+	/**
+	 * Pushes the lighting model's row, the maps it may sample and the area's own
+	 * tint.
+	 *
+	 * <p>Three caches, because the three move independently: the row (per draw,
+	 * from the saved setting), the material surface (per primitive - which of its
+	 * maps were decoded and uploaded), and the area (per frame, from the tile the
+	 * player stands on). Off sends one flag transition and nothing else, which is
+	 * what keeps a row-off frame the frame before the row existed.
+	 */
+	private void uploadMaterial(HdDrawRequest request, HdFrameState frame) {
+		int model = request.lightingModel() ? 1 : 0;
+		if (this.uploadedLightingModel != model) {
+			this.api.uniform1i(this.program.uniform(HdShaderSource.UNIFORM_LIGHTING_MODEL), model);
+			this.uploadedLightingModel = model;
+			this.materialUploads++;
+		}
+		HdMaterialSurface surface = model == 1 ? request.material() : HdMaterialSurface.OFF;
+		float[] flags = { surface.normal() ? 1.0F : 0.0F, surface.orm() ? 1.0F : 0.0F,
+			surface.emissive() ? 1.0F : 0.0F, surface.height() ? 1.0F : 0.0F };
+		if (this.uploadedMaterialFlags == null || !java.util.Arrays.equals(flags, this.uploadedMaterialFlags)) {
+			this.api.uniform4f(this.program.uniform(HdShaderSource.UNIFORM_MATERIAL_FLAGS), flags[0],
+				flags[1], flags[2], flags[3]);
+			this.uploadedMaterialFlags = flags;
+			this.materialUploads++;
+		}
+		float[] values = { surface.specular(), surface.emissiveStrength(), surface.parallax(),
+			surface.unlit() ? 1.0F : 0.0F };
+		if (this.uploadedMaterialSurface == null
+			|| !java.util.Arrays.equals(values, this.uploadedMaterialSurface)) {
+			this.api.uniform4f(this.program.uniform(HdShaderSource.UNIFORM_MATERIAL_SURFACE), values[0],
+				values[1], values[2], values[3]);
+			this.uploadedMaterialSurface = values;
+			this.materialUploads++;
+		}
+		// The area tint needs BOTH the environment-lighting row and an area that
+		// states one: the row is what the player turned on, the environment is what
+		// the data says this place looks like.
+		HdAreaLight area = frame.areaLight();
+		boolean areaOn = request.environmentLighting() && area.active();
+		if (!areaOn) {
+			if (this.uploadedAreaEnabled == 1) {
+				this.api.uniform4f(this.program.uniform(HdShaderSource.UNIFORM_AREA_SUN), 1.0F, 1.0F, 1.0F, 0.0F);
+				this.api.uniform4f(this.program.uniform(HdShaderSource.UNIFORM_AREA_AMBIENT), 1.0F, 1.0F,
+					1.0F, 0.0F);
+				this.uploadedAreaEnabled = 0;
+				this.materialUploads++;
+			}
+			return;
+		}
+		if (this.uploadedAreaEnabled != 1) {
+			this.uploadedAreaEnabled = 1;
+			this.materialUploads++;
+		}
+		if (!area.equals(this.uploadedArea)) {
+			this.api.uniform4f(this.program.uniform(HdShaderSource.UNIFORM_AREA_SUN), area.tintedSunRed(),
+				area.tintedSunGreen(), area.tintedSunBlue(), 1.0F);
+			this.api.uniform4f(this.program.uniform(HdShaderSource.UNIFORM_AREA_AMBIENT),
+				area.tintedAmbientRed(), area.tintedAmbientGreen(), area.tintedAmbientBlue(), 1.0F);
+			this.uploadedArea = area;
+			this.materialUploads++;
+		}
+	}
+
+	/** How many material/lighting-model uniforms this program has pushed; zero means the row never ran. */
+	public long materialUploads() {
+		return this.materialUploads;
+	}
+
 	/** Pushes one frame's map parameters: four matrix rows, texel, bias. */
 	private void uploadShadow(ShadowBinding shadow) {
 		float[] matrix = shadow.matrix();
@@ -653,6 +746,12 @@ public final class HdLightingPipeline {
 		this.uploadedTerrainBlend = null;
 		this.uploadedWorldRepeat = Float.NaN;
 		this.groundTextureUploads = 0L;
+		this.uploadedLightingModel = -1;
+		this.uploadedMaterialFlags = null;
+		this.uploadedMaterialSurface = null;
+		this.uploadedAreaEnabled = -1;
+		this.uploadedArea = HdAreaLight.OFF;
+		this.materialUploads = 0L;
 	}
 
 	/** Writes the compile failure to the client log exactly once. */

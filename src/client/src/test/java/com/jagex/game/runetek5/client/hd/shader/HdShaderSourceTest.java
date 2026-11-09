@@ -67,8 +67,13 @@ class HdShaderSourceTest {
 			assertTrue(HdShaderSource.VERTEX.contains(" " + uniform + ";"),
 				uniform + " is missing from the vertex source");
 		}
-		assertFalse(HdShaderSource.FRAGMENT.contains("uModelRow"),
-			"the fragment stage reads the varying, not the matrix");
+		// The fragment stage does read the model rows now, but only for the
+		// material's tangent frame and the hemisphere's up axis; the per-vertex
+		// lighting inputs still arrive as varyings, never as an attribute.
+		assertTrue(HdShaderSource.FRAGMENT.contains("uniform vec4 uModelRow0;"),
+			"the fragment stage needs the model rows to build the material's tangent frame");
+		assertFalse(HdShaderSource.FRAGMENT.contains("gl_Vertex"),
+			"the fragment stage reads varyings, never a vertex attribute");
 	}
 
 	@Test
@@ -140,10 +145,14 @@ class HdShaderSourceTest {
 			() -> assertTrue(fragment.contains("vec3 ambientLight = gl_LightModel.ambient.rgb;")),
 			() -> assertTrue(fragment.contains("if (uEnvLighting != 0) {")),
 			() -> assertTrue(fragment.contains("mix(ambientLight, uEnvSky.rgb * uEnvSky.a, skyWeight)")),
-			() -> assertTrue(fragment.contains("vec3 lighting = ambientLight * occlusion;")),
+			// The stock expression is still the row-off path; the lit model's own
+			// branch adds the sky/ground hemisphere over the same ambient.
+			() -> assertTrue(fragment.contains("lighting = ambientLight * occlusion;")),
+			() -> assertTrue(fragment.contains("lighting = (ambientLight * 0.75 + sky * max(facingUp, 0.0)")),
 			// The sun, anti-sun and point-light terms must keep reading GL state:
 			// the row has no business moving the environment's own sun upload.
-			() -> assertTrue(fragment.contains("lighting += gl_LightSource[0].diffuse.rgb")),
+			() -> assertTrue(fragment.contains("lighting += sunColour * max(dot(normal,"),
+				"the sun keeps reading GL state, through the area's tinted copy"),
 			() -> assertFalse(fragment.contains("gl_LightSource[0].diffuse.rgb * uEnv"),
 				"the row must not scale the sun's colour or intensity a second time")
 		);
@@ -215,7 +224,10 @@ class HdShaderSourceTest {
 			() -> assertTrue(HdShaderSource.FRAGMENT.contains("clamp(albedo.rgb * lighting, 0.0, 1.0)"),
 				"fog must see the same clamped colour fixed function fogs"),
 			() -> assertTrue(HdShaderSource.FRAGMENT.contains("mix(gl_Fog.color.rgb, lit, fogFactor)")),
-			() -> assertTrue(HdShaderSource.FRAGMENT.contains(", albedo.a)")),
+			// The sampled alpha reaches the framebuffer only when it is coverage; a
+			// strength mask is written as opaque.
+			() -> assertTrue(HdShaderSource.FRAGMENT.contains(
+				"gl_FragColor = vec4(colour, uAlphaCoverage != 0 ? albedo.a : 1.0);")),
 			() -> assertFalse(HdShaderSource.FRAGMENT.contains("lit.a"),
 				"alpha must come from the albedo, never from the lit colour")
 		);
@@ -230,9 +242,9 @@ class HdShaderSourceTest {
 				"the no-map path must return before any texture lookup"),
 			() -> assertTrue(fragment.contains("float sunShadow() {")),
 			// The sun term is the only diffuse term multiplied by the visibility.
-			() -> assertTrue(fragment.contains("gl_LightSource[0].diffuse.rgb * max(dot(normal, "
+			() -> assertTrue(fragment.contains("sunColour * max(dot(normal, "
 				+ "normalize(gl_LightSource[0].position.xyz)), 0.0) * shadow;")),
-			() -> assertFalse(fragment.contains("gl_LightSource[1].diffuse.rgb * max(dot(normal, "
+			() -> assertFalse(fragment.contains("antiSunColour * max(dot(normal, "
 				+ "normalize(gl_LightSource[1].position.xyz)), 0.0) * shadow"),
 				"the anti-sun is a fill light: it must not be shadowed"),
 			() -> assertTrue(fragment.contains("lighting += gl_LightSource[i].diffuse.rgb"))
@@ -319,5 +331,19 @@ class HdShaderSourceTest {
 	private static String firstLine(String source) {
 		int newline = source.indexOf('\n');
 		return newline < 0 ? source : source.substring(0, newline);
+	}
+
+	@Test
+	@DisplayName("the lit fragment writes a strength mask as opaque alpha")
+	void fragment_shouldGateAlphaOnCoverage() {
+		assertAll(
+			() -> assertTrue(HdShaderSource.FRAGMENT.contains("uniform int uAlphaCoverage;")),
+			() -> assertTrue(HdShaderSource.FRAGMENT.contains(
+				"gl_FragColor = vec4(colour, uAlphaCoverage != 0 ? albedo.a : 1.0);")),
+			() -> assertFalse(HdShaderSource.FRAGMENT.contains("gl_FragColor = vec4(colour, albedo.a);"),
+				"the raw texture alpha must never reach the framebuffer again"),
+			() -> assertTrue(java.util.Arrays.asList(HdShaderSource.uniforms())
+				.contains(HdShaderSource.UNIFORM_ALPHA_COVERAGE), "the pipeline must locate it")
+		);
 	}
 }

@@ -25,9 +25,9 @@ import org.junit.jupiter.api.Test;
 @DisplayName("592HD lighting pipeline")
 class HdLightingPipelineTest {
 
-	private static final int MODULATE = 7681;
+	private static final int MODULATE = 8448;
 
-	private static final int REPLACE = 8448;
+	private static final int REPLACE = 7681;
 
 	private FakeShaderApi api;
 
@@ -147,12 +147,15 @@ class HdLightingPipelineTest {
 
 		assertAll(
 			() -> assertEquals(Arrays.asList("uTexture=0", "uReflectionCube=2", "uWorldAtlas=3",
-				"uMaterialIdMap=4", "uTileMaterials=5", "uTextured=1",
+				"uMaterialIdMap=4", "uTileMaterials=5", "uMaterialNormal=6", "uMaterialOrm=7",
+				"uMaterialEmissive=8", "uMaterialHeight=9", "uTextured=1", "uAlphaCoverage=0",
 				"uPointLightCount=2", "uSceneSpace=0",
 				"uModelRow0=1.0,0.0,0.0,0.0", "uModelRow1=0.0,1.0,0.0,0.0",
 				"uModelRow2=0.0,0.0,1.0,0.0", "uModelRow3=0.0,0.0,0.0,1.0",
 				"uWorldTextures=0", "uMaterialMaps=0",
-				"uTerrainBlend=-1.0,0.0," + (1.0F / 256.0F) + ",0.0", "uWorldTextureRepeat=0.0"),
+				"uTerrainBlend=-1.0,0.0," + (1.0F / 256.0F) + ",0.0", "uWorldTextureRepeat=0.0",
+				"uLightingModel=0", "uMaterialFlags=0.0,0.0,0.0,0.0",
+				"uMaterialSurface=0.0,0.0,0.0,0.0"),
 				this.api.uploads),
 			() -> assertEquals("use:" + programHandle(), this.api.calls.get(before)),
 			() -> assertEquals("uniform1i:10,0", this.api.calls.get(before + 1), "sampler unit is uploaded first")
@@ -194,13 +197,16 @@ class HdLightingPipelineTest {
 
 		assertAll(
 			() -> assertEquals(Arrays.asList("uTexture=0", "uReflectionCube=2", "uWorldAtlas=3",
-				"uMaterialIdMap=4", "uTileMaterials=5", "uTextured=1",
+				"uMaterialIdMap=4", "uTileMaterials=5", "uMaterialNormal=6", "uMaterialOrm=7",
+				"uMaterialEmissive=8", "uMaterialHeight=9", "uTextured=1", "uAlphaCoverage=0",
 				"uPointLightCount=2", "uSceneSpace=0",
 				"uModelRow0=1.0,0.0,0.0,0.0", "uModelRow1=0.0,1.0,0.0,0.0",
 				"uModelRow2=0.0,0.0,1.0,0.0", "uModelRow3=0.0,0.0,0.0,1.0",
 				"uWorldTextures=0", "uMaterialMaps=0",
 				"uTerrainBlend=-1.0,0.0," + (1.0F / 256.0F) + ",0.0", "uWorldTextureRepeat=0.0",
-				"uTextured=0", "uPointLightCount=1"), this.api.uploads),
+				"uLightingModel=0", "uMaterialFlags=0.0,0.0,0.0,0.0",
+				"uMaterialSurface=0.0,0.0,0.0,0.0",
+				"uTextured=0", "uAlphaCoverage=0", "uPointLightCount=1"), this.api.uploads),
 			() -> assertEquals(lookups, this.api.calls("uniformLocation:"), "locations are cached")
 		);
 	}
@@ -226,8 +232,9 @@ class HdLightingPipelineTest {
 		List<String> delta = this.api.uploads.subList(afterSame, this.api.uploads.size());
 
 		assertAll(
-			() -> assertEquals(16, afterFirst,
-				"five sampler units, three state uniforms, four matrix rows, four ground scalars"),
+			() -> assertEquals(24, afterFirst,
+				"nine sampler units, four state uniforms, four matrix rows, four ground scalars, "
+				+ "three material uniforms"),
 			() -> assertEquals(afterFirst, afterSame, "the same matrix must not be re-uploaded"),
 			() -> assertEquals(4, delta.size(), "a moved model re-uploads its four rows"),
 			() -> assertTrue(delta.get(0).startsWith("uModelRow0="), delta.toString())

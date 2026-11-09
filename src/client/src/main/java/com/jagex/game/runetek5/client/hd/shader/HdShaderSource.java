@@ -88,11 +88,31 @@ public final class HdShaderSource {
 	/** Unit the ground mesh's per-tile material map is bound to. */
 	public static final int SAMPLER_UNIT_TILE_MATERIALS = 5;
 
+	/** Tangent-space normal map, on its own unit. */
+	public static final int SAMPLER_UNIT_MATERIAL_NORMAL = 6;
+
+	/** Packed occlusion/roughness/emissive mask, on its own unit. */
+	public static final int SAMPLER_UNIT_MATERIAL_ORM = 7;
+
+	/** Emitted colour, on its own unit. */
+	public static final int SAMPLER_UNIT_MATERIAL_EMISSIVE = 8;
+
+	/** Height map (its alpha is the height), on its own unit. */
+	public static final int SAMPLER_UNIT_MATERIAL_HEIGHT = 9;
+
 	/** {@code sampler2D}: the primitive's material texture. */
 	public static final String UNIFORM_TEXTURE = "uTexture";
 
 	/** {@code int}: 1 when the primitive has a bound material texture. */
 	public static final String UNIFORM_TEXTURED = "uTextured";
+
+	/**
+	 * {@code int}: whether the sampled alpha is this draw's coverage (1) or a
+	 * strength mask the fragment must not treat as opacity (0). A reflective
+	 * material keeps its specular strength in the texture alpha, so writing that
+	 * alpha out let the cut-out test and blending punch the surface see-through.
+	 */
+	public static final String UNIFORM_ALPHA_COVERAGE = "uAlphaCoverage";
 
 	/** {@code int}: how many of {@code GL_LIGHT2..5} are live this frame. */
 	public static final String UNIFORM_POINT_LIGHTS = "uPointLightCount";
@@ -342,6 +362,48 @@ public final class HdShaderSource {
 	public static final String UNIFORM_WORLD_TEXTURE_REPEAT = "uWorldTextureRepeat";
 
 	/**
+	 * {@code int}: 1 when this draw uses the lighting model - the mapped normal,
+	 * the occlusion/roughness maps, the hemisphere and the roughness highlight.
+	 *
+	 * <p>Zero is GL's initial value and the stock per-pixel path, so a frame with
+	 * the row off evaluates exactly the arithmetic it evaluated before the row
+	 * existed.
+	 */
+	public static final String UNIFORM_LIGHTING_MODEL = "uLightingModel";
+
+	/** {@code vec4}: which material maps this draw actually bound (1 or 0 each). */
+	public static final String UNIFORM_MATERIAL_FLAGS = "uMaterialFlags";
+
+	/**
+	 * {@code vec4}: {@code (specular, emissiveStrength, parallax, unlit)} - the
+	 * material's own response, from {@code materials.json}.
+	 */
+	public static final String UNIFORM_MATERIAL_SURFACE = "uMaterialSurface";
+
+	/**
+	 * {@code vec4}: the area's sun tint and whether it is active, from
+	 * {@code environments.json}: {@code rgb} multiplies the frame's sun, {@code w}
+	 * is 1 when an environment supplied it. Zero - GL's initial value - is the
+	 * stock sun colour, so a frame with no area is the frame before the row.
+	 */
+	public static final String UNIFORM_AREA_SUN = "uAreaSun";
+
+	/** {@code vec4}: the area's ambient tint and whether it is active, as above. */
+	public static final String UNIFORM_AREA_AMBIENT = "uAreaAmbient";
+
+	/** {@code sampler2D}: the material's tangent-space normal map. */
+	public static final String UNIFORM_MATERIAL_NORMAL = "uMaterialNormal";
+
+	/** {@code sampler2D}: red ambient occlusion, green roughness, blue emissive mask. */
+	public static final String UNIFORM_MATERIAL_ORM = "uMaterialOrm";
+
+	/** {@code sampler2D}: the material's emitted colour. */
+	public static final String UNIFORM_MATERIAL_EMISSIVE = "uMaterialEmissive";
+
+	/** {@code sampler2D}: the material's height map, its alpha the height. */
+	public static final String UNIFORM_MATERIAL_HEIGHT = "uMaterialHeight";
+
+	/**
 	 * {@code vec4}: the viewer's scene position ({@code xyz} used) - the eye the
 	 * grass is pushed away from.
 	 *
@@ -354,7 +416,7 @@ public final class HdShaderSource {
 	public static final String UNIFORM_SWAY_ORIGIN = "uSwayOrigin";
 
 	private static final String[] UNIFORMS = {
-		UNIFORM_TEXTURE, UNIFORM_TEXTURED, UNIFORM_POINT_LIGHTS,
+		UNIFORM_TEXTURE, UNIFORM_TEXTURED, UNIFORM_ALPHA_COVERAGE, UNIFORM_POINT_LIGHTS,
 		UNIFORM_SHADOW_MAP, UNIFORM_SHADOW_ROWS[0], UNIFORM_SHADOW_ROWS[1],
 		UNIFORM_SHADOW_ROWS[2], UNIFORM_SHADOW_ROWS[3], UNIFORM_SHADOW_TEXEL,
 		UNIFORM_SHADOW_BIAS, UNIFORM_SHADOW_RADIUS, UNIFORM_SHADOW_ENABLED,
@@ -373,7 +435,11 @@ public final class HdShaderSource {
 		UNIFORM_CAUSTICS, UNIFORM_REFLECTION, UNIFORM_REFLECTION_CUBE,
 		UNIFORM_WORLD_ATLAS, UNIFORM_MATERIAL_ID_MAP, UNIFORM_TILE_MATERIALS,
 		UNIFORM_WORLD_TEXTURES, UNIFORM_MATERIAL_MAPS, UNIFORM_TERRAIN_BLEND,
-		UNIFORM_WORLD_TEXTURE_REPEAT
+		UNIFORM_WORLD_TEXTURE_REPEAT,
+		UNIFORM_LIGHTING_MODEL, UNIFORM_MATERIAL_FLAGS, UNIFORM_MATERIAL_SURFACE,
+		UNIFORM_AREA_SUN, UNIFORM_AREA_AMBIENT,
+		UNIFORM_MATERIAL_NORMAL, UNIFORM_MATERIAL_ORM, UNIFORM_MATERIAL_EMISSIVE,
+		UNIFORM_MATERIAL_HEIGHT
 	};
 
 	/** The uniforms the vertex stage owns; the pipeline locates them there. */
@@ -527,6 +593,7 @@ public final class HdShaderSource {
 		+ "\n"
 		+ "uniform sampler2D uTexture;\n"
 		+ "uniform int uTextured;\n"
+		+ "uniform int uAlphaCoverage;\n"
 		+ "uniform int uPointLightCount;\n"
 		+ "uniform sampler2D uShadowMap;\n"
 		+ "uniform vec4 uShadowRow0;\n"
@@ -580,6 +647,21 @@ public final class HdShaderSource {
 		+ "uniform int uMaterialMaps;\n"
 		+ "uniform vec4 uTerrainBlend;\n"
 		+ "uniform float uWorldTextureRepeat;\n"
+		+ "uniform int uLightingModel;\n"
+		+ "uniform vec4 uMaterialFlags;\n"
+		+ "uniform vec4 uMaterialSurface;\n"
+		+ "uniform vec4 uAreaSun;\n"
+		+ "uniform vec4 uAreaAmbient;\n"
+		+ "uniform sampler2D uMaterialNormal;\n"
+		+ "uniform sampler2D uMaterialOrm;\n"
+		+ "uniform sampler2D uMaterialEmissive;\n"
+		+ "uniform sampler2D uMaterialHeight;\n"
+		+ "uniform vec4 uModelRow0;\n"
+		+ "uniform vec4 uModelRow1;\n"
+		+ "uniform vec4 uModelRow2;\n"
+		+ "uniform vec4 uEyeRow0;\n"
+		+ "uniform vec4 uEyeRow1;\n"
+		+ "uniform vec4 uEyeRow2;\n"
 		+ "\n"
 		+ "varying vec3 vEyePosition;\n"
 		+ "varying vec3 vEyeNormal;\n"
@@ -619,20 +701,49 @@ public final class HdShaderSource {
 		+ "\treturn visible / samples;\n"
 		+ "}\n"
 		+ "\n"
-		+ "// Contact occlusion from the same map: a coarse 3x3 grid at three texels\n"
-		+ "// and four times the bias. A fragment in contact with an occluder is\n"
-		+ "// shadowed across that whole neighbourhood, so this reads as darkening in\n"
-		+ "// creases rather than as a blurrier sun shadow.\n"
-		+ "float sunOcclusion(vec3 coord) {\n"
-		+ "\tfloat bias = uShadowBias * 4.0;\n"
-		+ "\tfloat visible = 0.0;\n"
-		+ "\tfor (int y = -1; y <= 1; y++) {\n"
-		+ "\t\tfor (int x = -1; x <= 1; x++) {\n"
-		+ "\t\t\tfloat depth = texture2D(uShadowMap, coord.xy + vec2(float(x), float(y)) * uShadowTexel * 3.0).r;\n"
-		+ "\t\t\tvisible += (coord.z - bias > depth) ? 0.0 : 1.0;\n"
-		+ "\t\t}\n"
+		+ "// The tangent frame at a fragment, from screen-space derivatives of the\n"
+		+ "// eye-space position and the texture coordinates: tangent along u, bitangent\n"
+		+ "// along v, and the face normal turned towards the viewer. 634HD's material\n"
+		+ "// maps are tangent space, and no 592 vertex format carries a tangent, so the\n"
+		+ "// frame has to come from the geometry the fragment already has.\n"
+		+ "mat3 tangentFrame(vec3 viewPos, vec2 uv) {\n"
+		+ "\tvec3 dp1 = dFdx(viewPos);\n"
+		+ "\tvec3 dp2 = dFdy(viewPos);\n"
+		+ "\tvec2 duv1 = dFdx(uv);\n"
+		+ "\tvec2 duv2 = dFdy(uv);\n"
+		+ "\tvec3 n = normalize(cross(dp1, dp2));\n"
+		+ "\tif (dot(n, -viewPos) < 0.0) {\n"
+		+ "\t\tn = -n;\n"
 		+ "\t}\n"
-		+ "\treturn visible / 9.0;\n"
+		+ "\tvec3 dp2perp = cross(dp2, n);\n"
+		+ "\tvec3 dp1perp = cross(n, dp1);\n"
+		+ "\tvec3 t = dp2perp * duv1.x + dp1perp * duv2.x;\n"
+		+ "\tvec3 b = dp2perp * duv1.y + dp1perp * duv2.y;\n"
+		+ "\tfloat scale = inversesqrt(max(max(dot(t, t), dot(b, b)), 1.0e-20));\n"
+		+ "\treturn mat3(t * scale, b * scale, n);\n"
+		+ "}\n"
+		+ "\n"
+		+ "// The uv the material maps are read at: the primitive's own texture\n"
+		+ "// coordinate, marched along the view ray through the height map, six\n"
+		+ "// steps as 634HD's hdParallaxUv marches it. Height is the map's alpha,\n"
+		+ "// which is where 634HD packs it (the packed map's alpha, or the normal\n"
+		+ "// PNG's for a set at its PNGs), so a material with no height map\n"
+		+ "// offsets nothing.\n"
+		+ "vec2 materialUv() {\n"
+		+ "\tif (uLightingModel == 0 || uMaterialFlags.w < 0.5 || uMaterialSurface.z <= 0.0) {\n"
+		+ "\t\treturn vTexCoord;\n"
+		+ "\t}\n"
+		+ "\tvec3 view = normalize(-vEyePosition);\n"
+		+ "\tvec2 marchStep = view.xy / max(view.z, 0.25) * (uMaterialSurface.z / 6.0);\n"
+		+ "\tvec2 p = vTexCoord;\n"
+		+ "\tfloat current = 0.0;\n"
+		+ "\tfloat height = 1.0 - texture2D(uMaterialHeight, p).a;\n"
+		+ "\tfor (int i = 0; i < 6 && current < height; i++) {\n"
+		+ "\t\tp -= marchStep;\n"
+		+ "\t\tcurrent += 1.0 / 6.0;\n"
+		+ "\t\theight = 1.0 - texture2D(uMaterialHeight, p).a;\n"
+		+ "\t}\n"
+		+ "\treturn p;\n"
 		+ "}\n"
 		+ "\n"
 		+ "// The carrier's own lamp. Compact support, so the term is exactly zero at\n"
@@ -714,9 +825,16 @@ public final class HdShaderSource {
 		+ "// Flat ground uses the planar mapping the stock texture matrix gives; steep\n"
 		+ "// ground takes the three axis projections weighted by the scene normal, so a\n"
 		+ "// cliff shows its texture instead of smeared edge texels.\n"
+		+ "// The id map is 256 x 256 id texels, not one row: 65536 ids do not fit in\n"
+		+ "// any width this context allows. An id is its column and its row.\n"
+		+ "float groundCell(float material) {\n"
+		+ "\tvec2 at = vec2(mod(material, 256.0), floor(material / 256.0));\n"
+		+ "\treturn texture2D(uMaterialIdMap, (at + 0.5) / 256.0).r * 255.0 - 1.0;\n"
+		+ "}\n"
+		+ "\n"
 		+ "vec4 groundMaterial() {\n"
 		+ "\tfloat material = uTerrainBlend.x;\n"
-		+ "\tfloat cell = texture2D(uMaterialIdMap, vec2((material + 0.5) / 256.0, 0.5)).r * 255.0 - 1.0;\n"
+		+ "\tfloat cell = groundCell(material);\n"
 		+ "\t// A material the page does not hold is reported to the caller, not\n"
 		+ "\t// multiplied in: the stock draw of that material is its bound texture,\n"
 		+ "\t// which is still on the base unit. White here would erase the texture\n"
@@ -750,7 +868,7 @@ public final class HdShaderSource {
 		+ "// the draw's uniform: the drawn layer is one of the tile's two materials,\n"
 		+ "// and the blend must reach the other one whichever side it is.\n"
 		+ "vec4 groundMaterialFor(float material) {\n"
-		+ "\tfloat cell = texture2D(uMaterialIdMap, vec2((material + 0.5) / 256.0, 0.5)).r * 255.0 - 1.0;\n"
+		+ "\tfloat cell = groundCell(material);\n"
 		+ "\t// Negative alpha means \"no cell on the page\": the caller leaves the\n"
 		+ "\t// tile drawing the material it does have. White would blend the tile\n"
 		+ "\t// toward the lightening the stock path does not apply for a material\n"
@@ -780,16 +898,19 @@ public final class HdShaderSource {
 		+ "\tif (own.a < 0.0) {\n"
 		+ "\t\treturn own;\n"
 		+ "\t}\n"
-		+ "\tfloat strength = uTerrainBlend.w * tile.b;\n"
+		+ "\t// The two ids are 16-bit, two bytes each: a 592 cache's material ids\n"
+		+ "// run past a byte (408, 181, 66 in one region log), and a byte-sized id\n"
+		+ "// addressed another material's cell - the wrong texture, or none.\n"
+		+ "\tfloat primary = tile.r * 255.0 + tile.g * 65280.0;\n"
+		+ "\tfloat mate = tile.b * 255.0 + tile.a * 65280.0;\n"
+		+ "\tif (mate > 65279.5 || abs(mate - primary) < 0.5) {\n"
+		+ "\t\treturn own;\n"
+		+ "\t}\n"
+		+ "\tfloat strength = uTerrainBlend.w;\n"
 		+ "\tif (strength <= 0.0) {\n"
 		+ "\t\treturn own;\n"
 		+ "\t}\n"
-		+ "\tfloat primary = tile.r * 255.0;\n"
-		+ "\tfloat mate = tile.g * 255.0;\n"
-		+ "\tif (mate > 254.5) {\n"
-		+ "\t\treturn own;\n"
-		+ "\t}\n"
-		+ "\tvec4 other = groundMaterialFor(uTerrainBlend.x == primary ? mate : primary);\n"
+		+ "\tvec4 other = groundMaterialFor(abs(uTerrainBlend.x - primary) < 0.5 ? mate : primary);\n"
 		+ "\tif (other.a < 0.0) {\n"
 		+ "\t\treturn own;\n"
 		+ "\t}\n"
@@ -801,12 +922,33 @@ public final class HdShaderSource {
 		+ "\n"
 		+ "void main() {\n"
 		+ "\tvec3 normal = normalize(vEyeNormal);\n"
+		+ "\t// The material's own maps, when the draw bound any. The flags are per\n"
+		+ "\t// draw (uniform), so this branch is uniform control flow - which is what\n"
+		+ "\t// makes the derivative-based tangent frame well defined.\n"
+		+ "\tvec2 mapUv = materialUv();\n"
 		+ "\tfloat occlusion = 1.0;\n"
-		+ "\tif (uAoEnabled != 0 && uShadowEnabled != 0) {\n"
-		+ "\t\tvec4 projected = shadowProjection();\n"
-		+ "\t\tvec3 coord = projected.xyz / projected.w;\n"
-		+ "\t\tif (coord.x >= 0.0 && coord.x <= 1.0 && coord.y >= 0.0 && coord.y <= 1.0 && coord.z <= 1.0) {\n"
-		+ "\t\t\tocclusion = 1.0 - uAoStrength * (1.0 - sunOcclusion(coord));\n"
+		+ "\tfloat roughness = 1.0;\n"
+		+ "\tvec4 orm = vec4(1.0, 1.0, 0.0, 1.0);\n"
+		+ "\tif (uLightingModel != 0) {\n"
+		+ "\t\tif (uMaterialFlags.x > 0.5) {\n"
+		+ "\t\t\tmat3 frame = tangentFrame(vEyePosition, mapUv);\n"
+		+ "\t\t\tvec3 face = frame[2];\n"
+		+ "\t\t\tvec3 tangent = normalize(frame[0] - face * dot(frame[0], face));\n"
+		+ "\t\t\tvec3 bitangent = normalize(frame[1] - face * dot(frame[1], face)\n"
+		+ "\t\t\t\t- tangent * dot(frame[1], tangent));\n"
+		+ "\t\t\tif (dot(cross(tangent, bitangent), face) < 0.0) {\n"
+		+ "\t\t\t\tbitangent = -bitangent;\n"
+		+ "\t\t\t}\n"
+		+ "\t\t\tvec2 xy = texture2D(uMaterialNormal, mapUv).xy * 2.0 - 1.0;\n"
+		+ "\t\t\tnormal = normalize(mat3(tangent, bitangent, face)\n"
+		+ "\t\t\t\t* vec3(xy, sqrt(max(1.0 - dot(xy, xy), 0.0))));\n"
+		+ "\t\t}\n"
+		+ "\t\tif (uMaterialFlags.y > 0.5) {\n"
+		+ "\t\t\torm = texture2D(uMaterialOrm, mapUv);\n"
+		+ "\t\t\t// Red is ambient occlusion. The Ambient occlusion row scales how\n"
+		+ "\t\t\t// much of it applies; 0.45 is 634HD's own depth when it is off.\n"
+		+ "\t\t\tocclusion = 1.0 - (uAoEnabled != 0 ? uAoStrength : 0.45) * (1.0 - orm.r);\n"
+		+ "\t\t\troughness = orm.g;\n"
 		+ "\t\t}\n"
 		+ "\t}\n"
 		+ "\t// The stock ambient is the level light tinted by the sun's colour. A\n"
@@ -815,12 +957,45 @@ public final class HdShaderSource {
 		+ "\t// facing away keeps the stock value, because this client's environment\n"
 		+ "\t// table has no ground colour to give it. Off is zero - GL's initial\n"
 		+ "\t// value - so the stock expression stands unchanged.\n"
+		+ "\t// The area's own sun and ambient tint, from environments.json: a desert's\n"
+		+ "\t// warm sun and a dungeon's cold fill differ even where the scene's stock\n"
+		+ "\t// lights are the same. Off is w = 0, GL's initial value, so the stock\n"
+		+ "\t// colours stand and an area that states no tint changes nothing.\n"
+		+ "\tvec3 sunColour = gl_LightSource[0].diffuse.rgb;\n"
+		+ "\tvec3 antiSunColour = gl_LightSource[1].diffuse.rgb;\n"
 		+ "\tvec3 ambientLight = gl_LightModel.ambient.rgb;\n"
+		+ "\tif (uAreaSun.w > 0.5) {\n"
+		+ "\t\tsunColour *= uAreaSun.rgb;\n"
+		+ "\t\tantiSunColour *= uAreaSun.rgb;\n"
+		+ "\t}\n"
+		+ "\tif (uAreaAmbient.w > 0.5) {\n"
+		+ "\t\tambientLight *= uAreaAmbient.rgb;\n"
+		+ "\t}\n"
+		+ "\tvec3 skyColour = ambientLight;\n"
 		+ "\tif (uEnvLighting != 0) {\n"
 		+ "\t\tfloat skyWeight = clamp(dot(normal, normalize(uEnvUp.xyz)), 0.0, 1.0);\n"
 		+ "\t\tambientLight = mix(ambientLight, uEnvSky.rgb * uEnvSky.a, skyWeight);\n"
+		+ "\t\tskyColour = uEnvSky.rgb * uEnvSky.a;\n"
 		+ "\t}\n"
-		+ "\tvec3 lighting = ambientLight * occlusion;\n"
+		+ "\tvec3 lighting;\n"
+		+ "\tif (uLightingModel != 0) {\n"
+		+ "\t\t// The term sum: a sky/ground hemisphere over the occlusion map, then\n"
+		+ "\t\t// the sun with its shadow, the anti-sun, then the local lights below.\n"
+		+ "\t\t// The scene's y axis is the world's up in eye space, read from the same\n"
+		+ "\t\t// rows the displacement and the terrain's normal fallback use.\n"
+		+ "\t\tvec3 up = uSceneSpace != 0\n"
+		+ "\t\t\t? normalize(vec3(uEyeRow0.y, uEyeRow1.y, uEyeRow2.y))\n"
+		+ "\t\t\t: normalize(vec3(uModelRow0.y, uModelRow1.y, uModelRow2.y));\n"
+		+ "\t\tfloat facingUp = dot(normal, up);\n"
+		+ "\t\tfloat skyLevel = max(dot(skyColour, vec3(0.333)), 0.05);\n"
+		+ "\t\tvec3 sky = mix(ambientLight, skyColour\n"
+		+ "\t\t\t* (max(dot(ambientLight, vec3(0.333)), 0.05) / skyLevel), 0.5) * 0.45;\n"
+		+ "\t\tvec3 bounce = ambientLight * vec3(1.06, 0.98, 0.88) * 0.25;\n"
+		+ "\t\tlighting = (ambientLight * 0.75 + sky * max(facingUp, 0.0)\n"
+		+ "\t\t\t+ bounce * max(-facingUp, 0.0)) * occlusion;\n"
+		+ "\t} else {\n"
+		+ "\t\tlighting = ambientLight * occlusion;\n"
+		+ "\t}\n"
 		+ "\tfloat shadow = sunShadow();\n"
 		+ "\t// Night keeps only a fraction of it: 1.0 is the sample untouched, so\n"
 		+ "\t// the branch is skipped for a full-strength sun.\n"
@@ -828,8 +1003,8 @@ public final class HdShaderSource {
 		+ "\t\tshadow = 1.0 - uShadowStrength * (1.0 - shadow);\n"
 		+ "\t}\n"
 		+ "\t// Only the sun casts; the anti-sun is a fill light and point lights are local.\n"
-		+ "\tlighting += gl_LightSource[0].diffuse.rgb * max(dot(normal, normalize(gl_LightSource[0].position.xyz)), 0.0) * shadow;\n"
-		+ "\tlighting += gl_LightSource[1].diffuse.rgb * max(dot(normal, normalize(gl_LightSource[1].position.xyz)), 0.0);\n"
+		+ "\tlighting += sunColour * max(dot(normal, normalize(gl_LightSource[0].position.xyz)), 0.0) * shadow;\n"
+		+ "\tlighting += antiSunColour * max(dot(normal, normalize(gl_LightSource[1].position.xyz)), 0.0);\n"
 		+ "\tfor (int i = 2; i < 6; i++) {\n"
 		+ "\t\tif (i - 2 >= uPointLightCount) {\n"
 		+ "\t\t\tbreak;\n"
@@ -847,6 +1022,18 @@ public final class HdShaderSource {
 		+ "\tlighting += carriedLight();\n"
 		+ "\tlighting += roomLight();\n"
 		+ "\tlighting += causticsTerm();\n"
+		+ "\t// The roughness highlight: a sun glint that narrows as the surface gets\n"
+		+ "\t// smoother, scaled by the material's own specular strength and by the\n"
+		+ "\t// shadow the sun already has here. A material with no ORM map stays fully\n"
+		+ "\t// rough, so (1 - roughness) is zero and no glint is invented.\n"
+		+ "\tif (uLightingModel != 0 && uMaterialSurface.x > 0.0) {\n"
+		+ "\t\tvec3 view = normalize(-vEyePosition);\n"
+		+ "\t\tvec3 sunDirection = normalize(gl_LightSource[0].position.xyz);\n"
+		+ "\t\tfloat gloss = mix(80.0, 4.0, roughness);\n"
+		+ "\t\tfloat highlight = pow(max(dot(view, reflect(-sunDirection, normal)), 0.0), gloss)\n"
+		+ "\t\t\t* (1.0 - roughness) * uMaterialSurface.x;\n"
+		+ "\t\tlighting += sunColour * (highlight * shadow);\n"
+		+ "\t}\n"
 		+ "\tvec4 albedo = gl_Color;\n"
 		+ "\t// The ground atlas path: the rows and a registered material. Anything\n"
 		+ "\t// else - every model draw - keeps the bound material texture below.\n"
@@ -873,10 +1060,20 @@ public final class HdShaderSource {
 		+ "\t} else if (uTextured != 0) {\n"
 		+ "\t\talbedo *= texture2D(uTexture, vTexCoord);\n"
 		+ "\t}\n"
-		+ "\tvec3 lit = clamp(albedo.rgb * lighting, 0.0, 1.0);\n"
+		+ "\t// An unlit material is drawn as the game shows it: its own texture, no\n"
+		+ "\t// light, shadow or occlusion on top (634HD's fire cape and lava).\n"
+		+ "\tvec3 lit = uLightingModel != 0 && uMaterialSurface.w > 0.5\n"
+		+ "\t\t? clamp(albedo.rgb, 0.0, 1.0) : clamp(albedo.rgb * lighting, 0.0, 1.0);\n"
 		+ "\t// The stock specular effect adds its cube over the textured colour rather\n"
 		+ "\t// than shading it, so a reflection is added here, past the lit texel.\n"
 		+ "\tlit += reflectionTerm();\n"
+		+ "\t// Emission last and unlit: a glowing surface keeps its glow whatever light\n"
+		+ "\t// falls on it. The mask is the ORM map's blue channel, or the whole\n"
+		+ "\t// emissive map when the material packs no mask.\n"
+		+ "\tif (uLightingModel != 0 && uMaterialFlags.z > 0.5) {\n"
+		+ "\t\tfloat mask = uMaterialFlags.y > 0.5 ? orm.b : 1.0;\n"
+		+ "\t\tlit += texture2D(uMaterialEmissive, mapUv).rgb * (mask * uMaterialSurface.y);\n"
+		+ "\t}\n"
 		+ "\t// A fogless draw keeps the whole band: GL's fog state still holds the\n"
 		+ "\t// last band the scene set, and applying it here would fog a draw the\n"
 		+ "\t// stock path draws without fog.\n"
@@ -897,7 +1094,12 @@ public final class HdShaderSource {
 		+ "\t\tfloat span = max(farPlane - fadeStart, 1.0e-4);\n"
 		+ "\t\tcolour = mix(gl_Fog.color.rgb, colour, clamp((farPlane - abs(vEyePosition.z)) / span, 0.0, 1.0));\n"
 		+ "\t}\n"
-		+ "\tgl_FragColor = vec4(colour, albedo.a);\n"
+		+ "\t// Only a coverage alpha may reach the framebuffer: a material whose\n"
+		+ "\t// alpha holds a specular or reflection strength (Class133.method3349\n"
+		+ "\t// false) keeps alpha 1, exactly as the stock opaque pass did. Writing\n"
+		+ "\t// the mask out made a reflective surface see-through under the scene's\n"
+		+ "\t// alpha test and blending.\n"
+		+ "\tgl_FragColor = vec4(colour, uAlphaCoverage != 0 ? albedo.a : 1.0);\n"
 		+ "}\n";
 
 	private HdShaderSource() {

@@ -94,4 +94,17 @@ class ShadowCutoutTest {
 			() -> assertTrue(HdFeature.CUTOUT_SHADOWS.valueCount() == 2, "Off and On")
 		);
 	}
+
+	@Test
+	@DisplayName("a strength mask in the alpha channel is not a cut-out")
+	void testsCasterAlpha_shouldRefuseStrengthMasks() {
+		assertAll(
+			() -> assertTrue(ShadowCutout.testsCasterAlpha(0, true), "slot 0, alpha is opacity"),
+			() -> assertTrue(ShadowCutout.testsCasterAlpha(2, true), "any other effect slot"),
+			() -> assertFalse(ShadowCutout.testsCasterAlpha(1, true), "specular strength in alpha"),
+			() -> assertFalse(ShadowCutout.testsCasterAlpha(7, true), "reflection strength in alpha"),
+			() -> assertFalse(ShadowCutout.testsCasterAlpha(0, false), "no alpha channel at all"),
+			() -> assertFalse(ShadowCutout.testsCasterAlpha(1, false), "no alpha channel, specular")
+		);
+	}
 }

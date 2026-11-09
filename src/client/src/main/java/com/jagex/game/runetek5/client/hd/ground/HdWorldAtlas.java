@@ -46,8 +46,11 @@ public final class HdWorldAtlas {
 
 	/**
 	 * Texels a cell's sampling rectangle is inset by, in each direction. One
-	 * texel is enough for a bilinear tap; the second is margin for a mip level
-	 * the driver chooses.
+	 * texel is what a bilinear tap needs so a cell's edge cannot read its
+	 * neighbour's first row; it is not margin for a mip chain - the page carries
+	 * none, because one chain over cells this close would average across their
+	 * edges (see {@code GlToolkit.buildGroundPage}). Upstream can mipmap because
+	 * it uploads these textures as an array, one layer per material.
 	 */
 	public static final int INSET = 1;
 

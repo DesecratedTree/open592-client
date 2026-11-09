@@ -2,6 +2,7 @@ package com.jagex.game.runetek5.client.hd.shadow;
 
 import com.jagex.game.runetek5.client.hd.HdFeature;
 import com.jagex.game.runetek5.client.hd.HdSettings;
+import com.jagex.game.runetek5.client.hd.reflect.HdReflection;
 
 /**
  * Cut-out casters for the sun's depth pass, ported from 634HD's
@@ -74,5 +75,25 @@ public final class ShadowCutout {
 			short[] faceMaterials) {
 		return cutoutActive && hasTexCoords && faceGroups != null && faceGroups.length >= 2
 			&& faceMaterials != null;
+	}
+
+	/**
+	 * True when a caster's texture alpha is the material's shape rather than a
+	 * strength kept in the same channel.
+	 *
+	 * <p>Ported from 634HD's {@code 13985ed2ef}: a material drawn opaque keeps a
+	 * specular or reflection effect's strength in its texture alpha, and the
+	 * deob already carries the rule for those two effects -
+	 * {@code Class133.method3349} is false for slots 1 and 7, the ones whose
+	 * alpha is not opacity. Alpha testing such a caster discards most of it (the
+	 * King Black Dragon's scales sit at alpha 0..70 and cast nothing while its
+	 * wing bones, whose alpha is opacity, cast), so only a material whose alpha
+	 * is opacity is a cut-out; every other caster casts its full silhouette.
+	 *
+	 * @param effectSlot the material's texture-effect slot ({@code MaterialType.aByte89})
+	 * @param hasAlphaChannel whether the material's texture carries an alpha channel
+	 */
+	public static boolean testsCasterAlpha(int effectSlot, boolean hasAlphaChannel) {
+		return hasAlphaChannel && !HdReflection.isStrengthMask(effectSlot);
 	}
 }

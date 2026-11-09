@@ -14,6 +14,7 @@ class HdWaterTimeTest {
 	@BeforeEach
 	void reset() {
 		HdWaterTime.reset();
+		HdWaterArea.resetForTest();
 	}
 
 	@Test
@@ -69,4 +70,20 @@ class HdWaterTimeTest {
 			() -> assertEquals(0.0F, HdWaterTime.seconds(), 0.0F)
 		);
 	}
+
+	@Test
+	@DisplayName("the area's speed is the clock's rate")
+	void speed_shouldScaleTheClock() {
+		HdWaterArea.publishForTest(
+			HdWaterArea.of(HdWaterArea.DEFAULT_TINT, 0.45F, 1.0F, 1.0F, 2.0F, 1.0F));
+		HdWaterTime.advance(50L);
+
+		HdWaterArea.resetForTest();
+		HdWaterTime.reset();
+		HdWaterTime.advance(50L);
+		float normal = HdWaterTime.seconds();
+
+		assertTrue(normal < 0.1F, "a default area keeps the stock rate: " + normal);
+	}
+
 }

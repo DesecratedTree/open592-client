@@ -51,17 +51,42 @@ import com.jagex.game.runetek5.client.hd.shader.HdShaderApi;
  */
 public final class HdWaterPipeline {
 
-	/** Wave amplitude in surface-normal units; the pane's "592HD water" row is on/off. */
+	/** Wave amplitude in surface-normal units; the pane's Water row is on/off and its value picks the surface. */
 	public static final float DEFAULT_FLOW = 0.06F;
 
-	/** Blinn-Phong exponent: tight enough to read as a sun glint. */
-	public static final float DEFAULT_SHININESS = 96.0F;
+	/**
+	 * The glint's exponent: 634HD's WATER type {@code gloss}, 500
+	 * ({@code 634hd/data/materials.schema.json}). It is a small, hard glint on
+	 * the crests, not a broad sheen: at 96 the lobe spread over a wave face.
+	 */
+	public static final float DEFAULT_SHININESS = 500.0F;
 
-	/** The custom surface's colour looking straight down: deep, almost black-blue. */
-	public static final float[] DEFAULT_DEEP_COLOUR = { 0.02F, 0.10F, 0.14F };
+	/**
+	 * Ripple strength: 634HD's WATER type {@code normalStrength}, 0.09. The
+	 * shipped normal map tilts the surface by this much in scene-normal units,
+	 * which is a ripple, not a chop.
+	 */
+	public static final float DEFAULT_NORMAL_STRENGTH = 0.09F;
 
-	/** The custom surface's colour at a grazing angle, tinting the stock texture. */
-	public static final float[] DEFAULT_SHALLOW_COLOUR = { 0.75F, 0.95F, 1.0F };
+	/**
+	 * The custom surface's colour looking straight down: 634HD's WATER type
+	 * {@code depth} colour, {@code #00758e} (#00, #75, #8e) over 255. Upstream
+	 * stores it as sRGB bytes ({@code 634hd/data/materials.schema.json}), and this
+	 * row shades in the texture's own sRGB space, so the bytes divide straight
+	 * through rather than being linearised first.
+	 */
+	public static final float[] DEFAULT_DEEP_COLOUR = { 0x00 / 255.0F, 0x75 / 255.0F, 0x8e / 255.0F };
+
+	/**
+	 * The custom surface's colour at a grazing angle, tinting the stock texture:
+	 * the same type's {@code surface} colour, {@code #69809c}.
+	 */
+	public static final float[] DEFAULT_SHALLOW_COLOUR = {
+		0x69 / 255.0F, 0x80 / 255.0F, 0x9c / 255.0F
+	};
+
+	/** The most point lights a stock frame uploads: {@code gl_LightSource[2 .. 5]}. */
+	public static final int MAX_POINT_LIGHTS = 4;
 
 	private final HdShaderApi api;
 
@@ -76,6 +101,30 @@ public final class HdWaterPipeline {
 
 	/** The custom surface; only compiled when the row's Custom value asks. */
 	private HdProgram custom;
+
+	/**
+	 * The terrain-format surfaces, one per {@link HdWaterGate.Surface}: the ground
+	 * pass' vertex arrays over the same fragment stages the region runs, so a
+	 * ground layer gets the region's look rather than a fixed calm one.
+	 */
+	private final HdProgram[] ground = new HdProgram[HdWaterGate.Surface.values().length];
+
+	private final boolean[] groundAttempted = new boolean[HdWaterGate.Surface.values().length];
+
+	/** The surface the open ground layer runs; {@code NONE} while none is bound. */
+	private HdWaterGate.Surface groundSurface = HdWaterGate.Surface.NONE;
+
+	/** The last surface a ground layer ran, which survives the hand-back. */
+	private HdWaterGate.Surface lastGroundSurface = HdWaterGate.Surface.NONE;
+
+	/** How many terrain-format binds ran, so a harness can see the variant ran. */
+	private long groundBinds;
+
+	/** Whether the program currently bound is the terrain-format one. */
+	private boolean groundBound;
+
+	/** The draw the open region last asked for, so the ground variant can hand back. */
+	private HdWaterRequest regionRequest;
 
 	private boolean attempted;
 
@@ -118,6 +167,39 @@ public final class HdWaterPipeline {
 
 	/** The breaking numbers last handed to the breaking program; null until it has any. */
 	private HdWaterBreaking breakingParams;
+
+	/** Whether the open draw's program holds a cube on the environment unit. */
+	private boolean boundEnvironment;
+
+	/** The area water the bound program holds, and the program it went to. */
+	private HdWaterArea boundArea;
+
+	private float boundAreaBlend = Float.NaN;
+
+	private HdProgram boundAreaProgram;
+
+	/** Whether the two water maps are bound on their units for the open draw. */
+	private boolean waterMaps;
+
+	/** The caustic strength last handed to the custom program. */
+	private float boundCaustics = Float.NaN;
+
+	/** The water type last handed to the bound program; null forces an upload. */
+	private HdWaterType boundType;
+
+	/**
+	 * Which program object the two rows above went to: uniform state is per
+	 * program, and a surface has more than one - the model-format program and the
+	 * terrain-format one. Keying on the surface let a ground layer reuse the model
+	 * program's type and draw with every water uniform still zero.
+	 */
+	private HdProgram boundTypeProgram;
+
+	/** The frame's live point lights, 0 to {@link #MAX_POINT_LIGHTS}. */
+	private int pointLights;
+
+	/** The count last uploaded to the bound program; -1 forces an upload. */
+	private int boundPointLights = -1;
 
 	/** Per program: a new program has never been handed this frame's uniforms. */
 	private float stillTime = Float.NaN;
@@ -334,7 +416,7 @@ public final class HdWaterPipeline {
 		if (wanted == HdWaterGate.Surface.NONE) {
 			return false;
 		}
-		bind(wanted, request.seconds(), request.breakingParams());
+		bind(wanted, request);
 		return true;
 	}
 
@@ -352,6 +434,12 @@ public final class HdWaterPipeline {
 	public boolean select(HdWaterRequest request) {
 		if (!this.bound) {
 			return false;
+		}
+		if (this.groundBound) {
+			// The terrain-format program owns this layer's draw. Rebinding a
+			// model-format program here would drop the layer's own vertex arrays
+			// for a program written against the model path.
+			return true;
 		}
 		if (request.requested() && request.reflective() && request.environment()) {
 			prepareReflective();
@@ -375,14 +463,176 @@ public final class HdWaterPipeline {
 			return true;
 		}
 		if (wanted == this.surface) {
+			refresh(wanted, request);
 			return true;
 		}
-		bind(wanted, request.seconds(), request.breakingParams());
+		bind(wanted, request);
 		return true;
+	}
+
+	/** Compiles the calm terrain-format surface; kept for the harness and teardown. */
+	public boolean prepareGround() {
+		return prepareGround(HdWaterGate.Surface.STILL);
+	}
+
+	/**
+	 * Compiles one terrain-format surface if a ground water layer asked for it.
+	 * One program per surface, compiled lazily: a region that never meets a
+	 * material type never pays for its terrain-format program.
+	 */
+	private boolean prepareGround(HdWaterGate.Surface surface) {
+		int index = surface.ordinal();
+		if (this.groundAttempted[index]) {
+			return this.ground[index] != null && this.ground[index].usable();
+		}
+		this.groundAttempted[index] = true;
+		HdProgramCompiler.Result result;
+		switch (surface) {
+		case CUSTOM:
+			result = HdProgramCompiler.compileGroundWater(this.api, HdWaterSource.CUSTOM_FRAGMENT,
+				"592HD custom ground water");
+			break;
+		case REFLECTIVE:
+			result = HdProgramCompiler.compileGroundWater(this.api, HdWaterSource.REFLECTIVE_FRAGMENT,
+				"592HD reflective ground water");
+			break;
+		case BREAKING:
+			result = HdProgramCompiler.compileGroundWater(this.api, HdWaterSource.BREAKING_FRAGMENT,
+				"592HD breaking ground water");
+			break;
+		default:
+			result = HdProgramCompiler.compileGroundWater(this.api);
+			break;
+		}
+		if (!result.succeeded()) {
+			this.ground[index] = null;
+			return false;
+		}
+		this.ground[index] = result.program();
+		return this.ground[index].usable();
+	}
+
+	/** True when the calm terrain-format surface linked on this context. */
+	public boolean groundAvailable() {
+		return ground(HdWaterGate.Surface.STILL) != null && ground(HdWaterGate.Surface.STILL).usable();
+	}
+
+	/** The terrain-format program for one surface, or null when it has none. */
+	private HdProgram ground(HdWaterGate.Surface surface) {
+		HdProgram program = this.ground[surface.ordinal()];
+		return program != null && program.usable() ? program : null;
+	}
+
+	/** True while a ground layer owns the program. */
+	public boolean groundBound() {
+		return this.groundBound;
+	}
+
+	/** The surface the open ground layer runs; {@code NONE} when none is open. */
+	public HdWaterGate.Surface groundSurface() {
+		return this.groundSurface;
+	}
+
+	/** The surface the last ground layer ran, for the pixel proof. */
+	public HdWaterGate.Surface lastGroundSurface() {
+		return this.lastGroundSurface;
+	}
+
+	/**
+	 * Binds the terrain-format surface for a ground water layer.
+	 *
+	 * <p>Only meaningful while a region is open; the region owns the cube, the
+	 * maps and the clock, and this call only swaps the program the layer is drawn
+	 * with. The layer's depth byte becomes the foam term {@link HdWaterSource#VERTEX}
+	 * takes from a model's texcoord z, and the calm fragment stage shades it.
+	 *
+	 * @param request the region's draw, built by the seam
+	 * @param foam    the stock per-tile depth over 255
+	 */
+	public boolean beginGround(HdWaterRequest request, float foam) {
+		if (!this.bound || !request.requested()) {
+			return false;
+		}
+		this.regionRequest = request;
+		HdWaterGate.Surface wanted = HdWaterGate.surface(request, available(), customAvailable(),
+			reflectiveAvailable(), breakingAvailable());
+		if (wanted == HdWaterGate.Surface.NONE || !prepareGround(wanted)) {
+			return false;
+		}
+		HdProgram program = ground(wanted);
+		if (program == null) {
+			return false;
+		}
+		this.api.use(program.handle());
+		program.bindSampler();
+		boolean environment = request.environment();
+		this.api.uniform1i(program.uniform(HdWaterSource.UNIFORM_ENVIRONMENT), HdWaterSource.ENVIRONMENT_UNIT);
+		this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_REFLECTION), environment ? 1.0F : 0.0F);
+		this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_TIME), request.seconds());
+		this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_FLOW), this.flow);
+		program.bindWaterSamplers();
+		this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_WATER_MAPS), this.waterMaps ? 1.0F : 0.0F);
+		this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_GROUND_DEPTH), foam);
+		// The row's net is every surface's now - on terrain as on a model - and the
+		// material's water type is the body the stock texel only tints, which is what
+		// stops a white material texture from drawing a white lake.
+		this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_CAUSTICS), request.caustics());
+		uploadWaterType(program, request.type());
+		uploadWaterArea(program);
+		if (wanted == HdWaterGate.Surface.BREAKING) {
+			uploadBreaking(program, request.breakingParams());
+		}
+		this.groundSurface = wanted;
+		this.lastGroundSurface = wanted;
+		this.groundBound = true;
+		this.groundBinds++;
+		return true;
+	}
+
+	/**
+	 * Hands the draw back to the region's own program.
+	 *
+	 * <p>The region's program keeps its uniform state in the program object, so
+	 * this is a bind rather than a second full upload; the clock is refreshed on
+	 * the next material, which is the same path every other draw in the region
+	 * takes.
+	 */
+	public void endGround() {
+		if (!this.groundBound) {
+			return;
+		}
+		this.groundBound = false;
+		this.groundSurface = HdWaterGate.Surface.NONE;
+		if (this.regionRequest == null) {
+			this.api.use(HdShaderApi.NO_PROGRAM);
+			this.bound = false;
+			this.surface = HdWaterGate.Surface.NONE;
+			return;
+		}
+		HdWaterGate.Surface wanted = HdWaterGate.surface(this.regionRequest, available(),
+			customAvailable(), reflectiveAvailable(), breakingAvailable());
+		if (wanted == HdWaterGate.Surface.NONE) {
+			this.api.use(HdShaderApi.NO_PROGRAM);
+			this.bound = false;
+			this.surface = HdWaterGate.Surface.NONE;
+			return;
+		}
+		this.bound = false;
+		bind(wanted, this.regionRequest);
+	}
+
+	/** How many terrain-format binds ran; zero means a water layer never reached one. */
+	public long groundBinds() {
+		return this.groundBinds;
 	}
 
 	/** Returns the context to fixed function; no-op when nothing is bound. */
 	public void unbind() {
+		// A ground layer that never closed would otherwise leave the terrain-format
+		// program selected for the next region, which is exactly the leak that
+		// made water lose its texture after the first layer.
+		this.groundBound = false;
+		this.groundSurface = HdWaterGate.Surface.NONE;
 		if (this.bound) {
 			this.api.use(HdShaderApi.NO_PROGRAM);
 			this.bound = false;
@@ -401,6 +651,30 @@ public final class HdWaterPipeline {
 		this.reflectiveTime = Float.NaN;
 		this.breakingTime = Float.NaN;
 		this.customTime = Float.NaN;
+	}
+
+	/**
+	 * Tells the pipeline whether the toolkit managed to bind 634HD's water maps.
+	 * The flag rides in the per-frame uniform group, so a draw whose maps are
+	 * missing keeps the wave-field surface instead of sampling empty units.
+	 */
+	public void setWaterMaps(boolean available) {
+		if (this.waterMaps != available) {
+			// The flag rides in the per-program frame group, and that group is
+			// skipped while the clock stands still. A change of art must not
+			// wait for the next clock step: invalidate the groups so the next
+			// bind uploads the flag with them.
+			this.stillTime = Float.NaN;
+			this.reflectiveTime = Float.NaN;
+			this.breakingTime = Float.NaN;
+			this.customTime = Float.NaN;
+		}
+		this.waterMaps = available;
+	}
+
+	/** True when the last draw was told the water maps are bound. */
+	public boolean waterMaps() {
+		return this.waterMaps;
 	}
 
 	/** Unbinds and deletes the programs; called from the toolkit's teardown. */
@@ -422,6 +696,17 @@ public final class HdWaterPipeline {
 			this.api.delete(this.custom.handle());
 			this.custom = null;
 		}
+		for (int index = 0; index < this.ground.length; index++) {
+			if (this.ground[index] != null) {
+				this.api.delete(this.ground[index].handle());
+				this.ground[index] = null;
+			}
+			this.groundAttempted[index] = true;
+		}
+		this.groundBound = false;
+		this.groundSurface = HdWaterGate.Surface.NONE;
+		this.lastGroundSurface = HdWaterGate.Surface.NONE;
+		this.groundBinds = 0L;
 		this.attempted = true;
 		this.reflectiveAttempted = true;
 		this.breakingAttempted = true;
@@ -431,6 +716,13 @@ public final class HdWaterPipeline {
 		this.breakingTime = Float.NaN;
 		this.customTime = Float.NaN;
 		this.breakingParams = null;
+		this.boundEnvironment = false;
+		this.boundCaustics = Float.NaN;
+		this.boundType = null;
+		this.boundTypeProgram = null;
+		this.boundPointLights = -1;
+		this.pointLights = 0;
+		this.waterMaps = false;
 		this.binds = 0L;
 		this.reflectiveBinds = 0L;
 		this.breakingBinds = 0L;
@@ -448,28 +740,41 @@ public final class HdWaterPipeline {
 	 * constant, and the breaking material's numbers because they come with the
 	 * draw that asked for the program.
 	 */
-	private void bind(HdWaterGate.Surface surface, float seconds, HdWaterBreaking breakingParams) {
+	private void bind(HdWaterGate.Surface surface, HdWaterRequest request) {
 		HdProgram program = program(surface);
 		this.api.use(program.handle());
 		program.bindSampler();
-		if (surface == HdWaterGate.Surface.REFLECTIVE || surface == HdWaterGate.Surface.BREAKING) {
+		boolean environment = request.environment();
+		if (environment) {
 			this.api.uniform1i(program.uniform(HdWaterSource.UNIFORM_ENVIRONMENT), HdWaterSource.ENVIRONMENT_UNIT);
 		}
+		if (surface == HdWaterGate.Surface.STILL || surface == HdWaterGate.Surface.CUSTOM) {
+			// The standard and custom surfaces blend the sky themselves; zero keeps
+			// the fog band's colour when the frame has no cube to sample.
+			this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_REFLECTION), environment ? 1.0F : 0.0F);
+		}
+		// Every surface shows the row's net and reads the material's water type and
+		// the frame's point lights, so all three go up with the bind rather than
+		// only for one style.
+		float caustics = request.caustics();
+		this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_CAUSTICS), caustics);
+		uploadWaterType(program, request.type());
+		uploadWaterArea(program);
+		this.boundEnvironment = environment;
+		this.boundCaustics = caustics;
+		float seconds = request.seconds();
 		float last = lastTime(surface);
 		if (Float.isNaN(last) || seconds != last) {
 			this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_TIME), seconds);
 			this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_FLOW), this.flow);
-			this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_SHININESS), DEFAULT_SHININESS);
-			if (surface == HdWaterGate.Surface.CUSTOM) {
-				this.api.uniform3f(program.uniform(HdWaterSource.UNIFORM_DEEP_COLOUR),
-					DEFAULT_DEEP_COLOUR[0], DEFAULT_DEEP_COLOUR[1], DEFAULT_DEEP_COLOUR[2]);
-				this.api.uniform3f(program.uniform(HdWaterSource.UNIFORM_SHALLOW_COLOUR),
-					DEFAULT_SHALLOW_COLOUR[0], DEFAULT_SHALLOW_COLOUR[1], DEFAULT_SHALLOW_COLOUR[2]);
-			}
+			// The map units never change, so they are selected with the frame
+			// group rather than per bind; the flag says whether they hold art.
+			program.bindWaterSamplers();
+			this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_WATER_MAPS), this.waterMaps ? 1.0F : 0.0F);
 			rememberTime(surface, seconds);
 		}
 		if (surface == HdWaterGate.Surface.BREAKING) {
-			uploadBreaking(program, breakingParams);
+			uploadBreaking(program, request.breakingParams());
 		}
 		this.surface = surface;
 		this.bound = true;
@@ -481,6 +786,127 @@ public final class HdWaterPipeline {
 		} else if (surface == HdWaterGate.Surface.CUSTOM) {
 			this.customBinds++;
 		}
+	}
+
+	/**
+	 * Re-uploads the two uniform groups a material can change without changing
+	 * the program: the reflection flag (the cube is bound per draw, so it can
+	 * appear between two materials of the same type) and the custom surface's
+	 * caustic strength (the Caustics row is live). A draw that changes neither
+	 * reaches no GL call at all.
+	 */
+	private void refresh(HdWaterGate.Surface surface, HdWaterRequest request) {
+		if (surface == HdWaterGate.Surface.NONE) {
+			return;
+		}
+		HdProgram program = program(surface);
+		if (program == null) {
+			return;
+		}
+		if (program != this.boundTypeProgram) {
+			// Uniform state belongs to the program object: a program that has just
+			// been switched to has never seen this frame's water type or lights.
+			this.boundType = null;
+			this.boundPointLights = -1;
+		}
+		if (!request.type().sameAs(this.boundType) || this.boundPointLights != this.pointLights) {
+			uploadWaterType(program, request.type());
+		}
+		if ((surface == HdWaterGate.Surface.STILL || surface == HdWaterGate.Surface.CUSTOM)
+				&& request.environment() != this.boundEnvironment) {
+			if (request.environment()) {
+				this.api.uniform1i(program.uniform(HdWaterSource.UNIFORM_ENVIRONMENT), HdWaterSource.ENVIRONMENT_UNIT);
+			}
+			this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_REFLECTION),
+				request.environment() ? 1.0F : 0.0F);
+			this.boundEnvironment = request.environment();
+		}
+		if (request.caustics() != this.boundCaustics) {
+			this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_CAUSTICS), request.caustics());
+			this.boundCaustics = request.caustics();
+		}
+	}
+
+	/**
+	 * The frame's live point lights, counted as the lighting program counts them.
+	 * Their position, colour and attenuation are fixed function's
+	 * {@code gl_LightSource[2 .. 5]} rows, which the stock light copy has already
+	 * uploaded; this seam only tells the water surface how many of them to read.
+	 */
+	public void setPointLights(int count) {
+		int clamped = count < 0 ? 0 : (count > MAX_POINT_LIGHTS ? MAX_POINT_LIGHTS : count);
+		if (this.pointLights != clamped) {
+			this.pointLights = clamped;
+			this.boundPointLights = -1;
+		}
+	}
+
+	/** The point-light count last handed to the water surface. */
+	public int pointLights() {
+		return this.pointLights;
+	}
+
+	/**
+	 * Hands one water type and the frame's point-light count to the bound
+	 * program: the type's palette, foam colour, gloss, ripple strength, specular
+	 * strength, Fresnel share, opacity and animation period. A material's water
+	 * block is the whole difference between a swamp's water and a lake's, so the
+	 * program never changes for it. Skipped when the program already holds them.
+	 */
+	private void uploadWaterType(HdProgram program, HdWaterType type) {
+		HdWaterType resolved = type == null ? HdWaterType.DEFAULT : type;
+		boolean sameProgram = program == this.boundTypeProgram;
+		if (!sameProgram || !resolved.sameAs(this.boundType)) {
+			float[] surfaceColour = resolved.surfaceColour();
+			float[] depthColour = resolved.depthColour();
+			float[] foamColour = resolved.foamColour();
+			this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_SHININESS), resolved.gloss());
+			this.api.uniform1f(program.uniform(HdWaterSource.UNIFORM_NORMAL_STRENGTH),
+				resolved.normalStrength());
+			this.api.uniform3f(program.uniform(HdWaterSource.UNIFORM_DEEP_COLOUR),
+				depthColour[0], depthColour[1], depthColour[2]);
+			this.api.uniform3f(program.uniform(HdWaterSource.UNIFORM_SHALLOW_COLOUR),
+				surfaceColour[0], surfaceColour[1], surfaceColour[2]);
+			this.api.uniform3f(program.uniform(HdWaterSource.UNIFORM_FOAM_COLOUR),
+				foamColour[0], foamColour[1], foamColour[2]);
+			this.api.uniform3f(program.uniform(HdWaterSource.UNIFORM_WATER_SPEC),
+				resolved.specular(), resolved.fresnel(), resolved.opacity());
+			this.api.uniform3f(program.uniform(HdWaterSource.UNIFORM_WATER_SHAPE),
+				resolved.hasFoam() ? 1.0F : 0.0F, resolved.duration(),
+				resolved.plain() ? 1.0F : 0.0F);
+			this.boundType = resolved;
+		}
+		if (!sameProgram || this.boundPointLights != this.pointLights) {
+			this.api.uniform1i(program.uniform(HdWaterSource.UNIFORM_POINT_LIGHTS), this.pointLights);
+			this.boundPointLights = this.pointLights;
+		}
+		this.boundTypeProgram = program;
+	}
+
+	/**
+	 * Hands the bound program the area's water: the ripples' height, the
+	 * sun's glint, the tiling (and the tiling on show before it, with the
+	 * blend between them) and the tint - 634HD's {@code hdWaterParams},
+	 * {@code hdWaterClock.y}/{@code z} and {@code hdWaterTint}. Skipped when
+	 * the program already holds this frame's values, so a settled area costs
+	 * no GL call between two draws of the same program.
+	 */
+	private void uploadWaterArea(HdProgram program) {
+		HdWaterArea area = HdWaterArea.current();
+		if (program != this.boundAreaProgram || !area.sameAs(this.boundArea)) {
+			this.api.uniform3f(program.uniform(HdWaterSource.UNIFORM_WATER_PARAMS), area.waves(),
+				area.glint(), area.size());
+			this.api.uniform4f(program.uniform(HdWaterSource.UNIFORM_WATER_TINT), area.tintRed(),
+				area.tintGreen(), area.tintBlue(), area.tintStrength());
+			this.boundArea = area;
+			this.boundAreaBlend = Float.NaN;
+		}
+		if (Float.isNaN(this.boundAreaBlend) || area.blend() != this.boundAreaBlend) {
+			this.api.uniform2f(program.uniform(HdWaterSource.UNIFORM_WATER_BLEND),
+				area.shownSize(), area.blend());
+			this.boundAreaBlend = area.blend();
+		}
+		this.boundAreaProgram = program;
 	}
 
 	/**

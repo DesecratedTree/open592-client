@@ -1,0 +1,200 @@
+{
+  "title": "634HD environments",
+  "description": "Per-area lighting and atmosphere for 634HD's features. The first environment whose area holds the player applies; one without an area is the default. A change blends in over three seconds (at once after a teleport). Entries with a source were generated per area (their fog alone); hand-written entries come first and win.",
+  "type": "object",
+  "required": [
+    "environments"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "environments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "the area a generated entry covers (\"KHARIDIAN_DESERT\"); absent on a hand-written one"
+          },
+          "area": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "regions": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 65535
+                }
+              },
+              "bounds": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  },
+                  "minItems": 4,
+                  "maxItems": 4,
+                  "description": "x1, y1, x2, y2 in world tiles"
+                }
+              },
+              "levels": {
+                "type": "array",
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 3
+                }
+              }
+            }
+          },
+          "sun": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "pitch": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 90
+              },
+              "yaw": {
+                "type": "number",
+                "minimum": -360,
+                "maximum": 360
+              },
+              "colour": {
+                "$ref": "#/$defs/colour"
+              },
+              "intensity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 8
+              }
+            }
+          },
+          "ambient": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "colour": {
+                "$ref": "#/$defs/colour"
+              },
+              "intensity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 8
+              }
+            }
+          },
+          "fog": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "the fog: the colour (absent: the game's zone fog colour, its sky), the depth (how thick the exponential distance fog is, 6.5 the open overworld, 25 most areas, 50 deep desert; absent: the default environment's), the end in tiles from the camera (absent: the game's own for the scene size)",
+            "properties": {
+              "colour": {
+                "$ref": "#/$defs/colour"
+              },
+              "depth": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000
+              },
+              "end": {
+                "type": "number",
+                "minimum": 0,
+                "description": "tiles from the camera"
+              }
+            }
+          },
+          "sky": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "top": {
+                "$ref": "#/$defs/colour"
+              },
+              "horizon": {
+                "$ref": "#/$defs/colour"
+              }
+            }
+          },
+          "groundFog": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "the ground fog, a low mist by height: full below start, none above end (world y in scene units, 512 a tile, negative is up), at opacity",
+            "properties": {
+              "start": {
+                "type": "number"
+              },
+              "end": {
+                "type": "number"
+              },
+              "opacity": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          },
+          "lut": {
+            "type": "string",
+            "description": "a 256x16 colour grading strip under 634hd/luts"
+          },
+          "waterTint": {
+            "$ref": "#/$defs/colour"
+          },
+          "water": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "the area's water (with client.hd.water): speed is the rate of the water's clock: the caustics' (1 and 2) and, with 634HD's own surface (2), the ripples' animation; tint and strength pull the type's surface colour towards the tint's hue (at the type's own brightness) and give the reflection's fallback gradient its hue; waves scales the ripples' height, glint the sun's glint, size the ripples' tiling; each 1 is the default",
+            "properties": {
+              "tint": {
+                "$ref": "#/$defs/colour"
+              },
+              "strength": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "waves": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "speed": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 4
+              },
+              "size": {
+                "type": "number",
+                "minimum": 0.25,
+                "maximum": 4
+              },
+              "glint": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 4
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "colour": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$"
+    }
+  }
+}

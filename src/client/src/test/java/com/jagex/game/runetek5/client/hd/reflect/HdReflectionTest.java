@@ -61,4 +61,18 @@ class HdReflectionTest {
 			() -> assertTrue(reflecting.toString().contains("reflection="))
 		);
 	}
+
+	@Test
+	@DisplayName("a specular alpha is a strength, not coverage: the surface stays opaque")
+	void alphaCoverage_shouldRefuseStrengthMasks() {
+		assertAll(
+			() -> assertFalse(HdReflection.alphaIsCoverage(HdReflection.SPECULAR_SLOT, true),
+				"slot 1 keeps its strength in alpha"),
+			() -> assertFalse(HdReflection.alphaIsCoverage(7, true), "slot 7 keeps its strength in alpha"),
+			() -> assertTrue(HdReflection.alphaIsCoverage(0, true), "an ordinary cut-out keeps its shape"),
+			() -> assertTrue(HdReflection.alphaIsCoverage(0, false), "no alpha channel"),
+			() -> assertTrue(HdReflection.isStrengthMask(HdReflection.SPECULAR_SLOT)),
+			() -> assertFalse(HdReflection.isStrengthMask(0))
+		);
+	}
 }

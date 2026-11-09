@@ -18,10 +18,10 @@ import org.junit.jupiter.api.io.TempDir;
 class HdLightingGateTest {
 
 	/** {@code GL_MODULATE}. */
-	private static final int MODULATE = 7681;
+	private static final int MODULATE = 8448;
 
 	/** {@code GL_REPLACE}. */
-	private static final int REPLACE = 8448;
+	private static final int REPLACE = 7681;
 
 	/** The draw the shader was built for: HD on, row on, fogged, textured, lit. */
 	private static HdDrawRequest pass() {

@@ -45,10 +45,10 @@ import org.lwjgl.opengl.GL14;
 class HdLightingRealGlTest {
 
 	/** {@code GL_MODULATE}. */
-	private static final int GL_MODULATE = 7681;
+	private static final int GL_MODULATE = 8448;
 
 	/** {@code GL_REPLACE}. */
-	private static final int GL_REPLACE = 8448;
+	private static final int GL_REPLACE = 7681;
 
 	/** {@code GL_CURRENT_PROGRAM}, GL 2.0. */
 	private static final int CURRENT_PROGRAM = 35725;

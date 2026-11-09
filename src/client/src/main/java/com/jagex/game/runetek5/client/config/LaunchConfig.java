@@ -35,7 +35,7 @@ import com.jagex.game.runetek5.deob.Class186;
 public final class LaunchConfig {
 
 	/** The stock server host, the value {@code ClientLoader} shipped with. */
-	public static final String DEFAULT_HOST = "15.204.91.129";
+	public static final String DEFAULT_HOST = "127.0.0.1";
 
 	/** The stock game port used by {@code client.maininit}'s GL branch. */
 	public static final int DEFAULT_PORT = 43594;

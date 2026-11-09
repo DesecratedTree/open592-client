@@ -29,6 +29,7 @@ class HdWaterPipelineTest {
 		// The reflective program's extra sampler; declaring it after the calm
 		// group keeps the calm uniforms' locations stable for the assertions.
 		this.api.declareUniform(HdWaterSource.UNIFORM_ENVIRONMENT);
+		this.api.declareUniform(HdWaterSource.UNIFORM_CAUSTICS);
 		// The custom surface's palette, declared last for the same reason.
 		this.api.declareUniform(HdWaterSource.UNIFORM_DEEP_COLOUR);
 		this.api.declareUniform(HdWaterSource.UNIFORM_SHALLOW_COLOUR);
@@ -39,6 +40,13 @@ class HdWaterPipelineTest {
 		this.api.declareUniform(HdWaterSource.UNIFORM_WAVE_EXPONENT);
 		this.api.declareUniform(HdWaterSource.UNIFORM_BREAK_SCALE);
 		this.api.declareUniform(HdWaterSource.UNIFORM_BREAK_RATE);
+		// The two water maps and the flag/strength the pipeline hands with them.
+		this.api.declareUniform(HdWaterSource.UNIFORM_WATER_NORMAL);
+		this.api.declareUniform(HdWaterSource.UNIFORM_WATER_FOAM);
+		this.api.declareUniform(HdWaterSource.UNIFORM_WATER_MAPS);
+		this.api.declareUniform(HdWaterSource.UNIFORM_NORMAL_STRENGTH);
+		// The area is static: a published one outlives its test class.
+		HdWaterArea.resetForTest();
 		this.pipeline = new HdWaterPipeline(this.api);
 	}
 
@@ -62,8 +70,10 @@ class HdWaterPipelineTest {
 			() -> assertTrue(this.pipeline.bound()),
 			() -> assertEquals(1, this.api.calls("link:")),
 			() -> assertTrue(this.api.uploads.contains("uTexture=0"), "the sampler is bound to unit 0: " + this.api.uploads),
-			() -> assertEquals(Arrays.asList("uTime=1.25", "uFlow=" + HdWaterPipeline.DEFAULT_FLOW,
-				"uShininess=" + HdWaterPipeline.DEFAULT_SHININESS), uploadsOf("uTime", "uFlow", "uShininess")),
+			// The material's water type - its gloss included - goes up with the
+			// bind, ahead of the frame group.
+			() -> assertEquals(Arrays.asList("uShininess=" + HdWaterPipeline.DEFAULT_SHININESS, "uTime=1.25",
+				"uFlow=" + HdWaterPipeline.DEFAULT_FLOW), uploadsOf("uTime", "uFlow", "uShininess")),
 			() -> assertEquals(1L, this.pipeline.binds())
 		);
 	}
@@ -96,7 +106,11 @@ class HdWaterPipelineTest {
 		this.pipeline.begin(HdWaterRequest.still(true, 3.0F));
 
 		assertAll(
-			() -> assertEquals(uploads + 1, this.api.uploads.size(), "only the sampler is re-bound"),
+			// The program still holds the material's water type, so only the
+			// sampler, the reflection flag and the caustic strength are re-bound:
+			// the palette is not re-sent for a type the program already has.
+			() -> assertEquals(uploads + 3, this.api.uploads.size(),
+				"the sampler, the reflection flag and the caustic strength are re-bound"),
 			() -> assertEquals(2L, this.pipeline.binds()),
 			() -> assertTrue(uploadsOf("uTime", "uFlow", "uShininess").size() == 3)
 		);
@@ -261,6 +275,54 @@ class HdWaterPipelineTest {
 			() -> assertEquals("uTime=1.5", uploadsOf("uTime").get(uploadsOf("uTime").size() - 1)),
 			() -> assertEquals(1L, this.pipeline.customBinds()),
 			() -> assertEquals(0L, this.pipeline.reflectiveBinds())
+		);
+	}
+
+	@Test
+	@DisplayName("the custom palette is upstream's WATER type: depth #00758e under surface #69809c")
+	void customPalette_shouldBeTheUpstreamWaterType() {
+		// 634hd/data/materials.schema.json: the WATER type's depth and surface
+		// colours, whose sRGB bytes this row uses directly (it shades in the
+		// texture's own sRGB space).
+		float[] deep = HdWaterPipeline.DEFAULT_DEEP_COLOUR;
+		float[] shallow = HdWaterPipeline.DEFAULT_SHALLOW_COLOUR;
+		assertAll(
+			() -> assertEquals(3, deep.length),
+			() -> assertEquals(0x00 / 255.0F, deep[0], 0.0F, "depth #00758e: red"),
+			() -> assertEquals(0x75 / 255.0F, deep[1], 0.0F, "depth #00758e: green"),
+			() -> assertEquals(0x8e / 255.0F, deep[2], 0.0F, "depth #00758e: blue"),
+			() -> assertEquals(3, shallow.length),
+			() -> assertEquals(0x69 / 255.0F, shallow[0], 0.0F, "surface #69809c: red"),
+			() -> assertEquals(0x80 / 255.0F, shallow[1], 0.0F, "surface #69809c: green"),
+			() -> assertEquals(0x9c / 255.0F, shallow[2], 0.0F, "surface #69809c: blue")
+		);
+	}
+
+	@Test
+	@DisplayName("the standard surface is told whether the frame has a cube to sample")
+	void stillSurface_shouldUploadTheReflectionFlag() {
+		assertTrue(this.pipeline.begin(HdWaterRequest.still(true, 1.0F).withEnvironment(true)));
+
+		assertAll(
+			() -> assertEquals(Arrays.asList("uEnvironment=1"), uploadsOf("uEnvironment")),
+			() -> assertEquals(Arrays.asList("uReflection=1.0"), uploadsOf("uReflection")),
+			// The net is every surface's now: a lake on the plain rows showed no
+			// caustics at all while only the custom style ran them.
+			() -> assertEquals(Arrays.asList("uCaustics=0.0"), uploadsOf("uCaustics"),
+				"the standard surface runs the row's net, at the strength it was handed")
+		);
+	}
+
+	@Test
+	@DisplayName("the custom surface is handed the Caustics row's strength")
+	void customSurface_shouldUploadTheCausticStrength() {
+		assertTrue(this.pipeline.begin(HdWaterRequest.still(true, true, 1.0F).withCaustics(1.0F)));
+
+		assertAll(
+			() -> assertTrue(this.pipeline.customMode()),
+			() -> assertEquals(Arrays.asList("uCaustics=1.0"), uploadsOf("uCaustics")),
+			() -> assertEquals(Arrays.asList("uReflection=0.0"), uploadsOf("uReflection"),
+				"no cube in this draw, so the sheen falls back to the fog band")
 		);
 	}
 
@@ -438,6 +500,115 @@ class HdWaterPipelineTest {
 			() -> assertEquals(0L, this.pipeline.reflectiveBinds()),
 			() -> assertEquals(0L, this.pipeline.breakingBinds())
 		);
+	}
+
+	@Test
+	@DisplayName("the map units are selected once per frame group, and their absence is uploaded as 0")
+	void waterMaps_shouldBeBoundAndFlagged() {
+		this.pipeline.setWaterMaps(true);
+		assertTrue(this.pipeline.begin(HdWaterRequest.still(true, 1.0F)));
+
+		assertAll(
+			() -> assertTrue(this.api.uploads.contains("uWaterNormal=" + HdWaterSource.WATER_NORMAL_UNIT),
+				this.api.uploads.toString()),
+			() -> assertTrue(this.api.uploads.contains("uWaterFoam=" + HdWaterSource.WATER_FOAM_UNIT),
+				this.api.uploads.toString()),
+			() -> assertEquals(Arrays.asList("uWaterMaps=1.0"), uploadsOf("uWaterMaps")),
+			() -> assertEquals(Arrays.asList("uNormalStrength=" + HdWaterPipeline.DEFAULT_NORMAL_STRENGTH),
+				uploadsOf("uNormalStrength")),
+			() -> assertTrue(this.pipeline.waterMaps())
+		);
+
+		this.pipeline.setWaterMaps(false);
+		this.pipeline.begin(HdWaterRequest.still(true, 2.0F));
+		assertAll(
+			() -> assertEquals("uWaterMaps=0.0", uploadsOf("uWaterMaps").get(uploadsOf("uWaterMaps").size() - 1)),
+			() -> assertFalse(this.pipeline.waterMaps())
+		);
+	}
+
+	@Test
+	@DisplayName("a map flag that changes within one clock step is uploaded, not cached")
+	void waterMaps_changeAtTheSameTime_shouldBeUploaded() {
+		// The flag rides in the frame group, and that group is skipped while the
+		// clock stands still; the first draw must not leave a stale 0 for every
+		// draw at that instant.
+		this.pipeline.setWaterMaps(false);
+		assertTrue(this.pipeline.begin(HdWaterRequest.still(true, 1.0F)));
+		this.pipeline.setWaterMaps(true);
+		assertTrue(this.pipeline.begin(HdWaterRequest.still(true, 1.0F)));
+
+		assertAll(
+			() -> assertEquals(Arrays.asList("uWaterMaps=0.0", "uWaterMaps=1.0"), uploadsOf("uWaterMaps")),
+			() -> assertEquals(2, uploadsOf("uTime").size(), "the frame group moves with the flag")
+		);
+	}
+
+	@Test
+	@DisplayName("a ground layer is handed the type its own program has not seen")
+	void groundLayer_shouldGetTheTypeItsProgramHasNotSeen() {
+		// The model-format program and the terrain-format one are two program
+		// objects of the same surface, and uniforms live on the program: keying
+		// the type on the surface left the ground program at all zeros, which
+		// drew a flat black lake whose ripples and net never moved.
+		HdWaterRequest request = HdWaterRequest.still(true, 1.0F);
+		assertTrue(this.pipeline.begin(request));
+		int spec = uploadsOf("uWaterSpec").size();
+		int lights = uploadsOf("uPointLightCount").size();
+		int params = uploadsOf("uWaterParams").size();
+
+		assertTrue(this.pipeline.beginGround(request, 0.5F));
+
+		assertAll(
+			() -> assertEquals(1, spec, "the model program was handed the type once"),
+			() -> assertEquals(spec + 1, uploadsOf("uWaterSpec").size(),
+				"the ground program is handed the type as well"),
+			() -> assertEquals(lights + 1, uploadsOf("uPointLightCount").size(),
+				"and the frame's point-light count with it"),
+			() -> assertEquals(HdWaterGate.Surface.STILL, this.pipeline.groundSurface()),
+			// The terrain program had no area group at all, which left the
+			// strength at zero and its ripples flat: the lake proof caught it.
+			() -> assertEquals(params + 1, uploadsOf("uWaterParams").size(),
+				"and the area's water, which the terrain program has never seen")
+		);
+	}
+
+	@Test
+	@DisplayName("the area's water is uploaded once per program, not once per layer")
+	void waterArea_shouldUploadOnceAndFollowTheArea() {
+		// A lake draws many layers of one program, and the area group belongs to
+		// the program: re-sending it per layer is per-draw work for one teleport.
+		HdWaterArea.publishForTest(HdWaterArea.of(0x204060, 0.5F, 2.0F, 3.0F, 0.5F, 2.0F));
+		try {
+			assertTrue(this.pipeline.begin(HdWaterRequest.still(true, 1.0F)));
+			assertAll(
+				() -> assertEquals(Arrays.asList("uWaterParams=2.0,3.0,2.0"), uploadsOf("uWaterParams")),
+				() -> assertEquals(1, uploadsOf("uWaterTint").size(), "the tint rides with the scales"),
+				() -> assertEquals(Arrays.asList("uWaterBlend=2.0,1.0"), uploadsOf("uWaterBlend"),
+					"a settled area shows its own tiling")
+			);
+
+			assertTrue(this.pipeline.begin(HdWaterRequest.still(true, 1.0F)));
+			assertAll(
+				() -> assertEquals(1, uploadsOf("uWaterParams").size(), "a settled area is not re-sent"),
+				() -> assertEquals(1, uploadsOf("uWaterTint").size()),
+				() -> assertEquals(1, uploadsOf("uWaterBlend").size())
+			);
+
+			// A teleport crossfades from the tiling that was on show, so the shown
+			// size and the blend go up with the new area's own size.
+			HdWaterArea.publishForTest(HdWaterArea.midTransition(
+				HdWaterArea.of(0x204060, 0.5F, 2.0F, 3.0F, 0.5F, 4.0F), 2.0F, 0.0F));
+			assertTrue(this.pipeline.begin(HdWaterRequest.still(true, 2.0F)));
+			List<String> params = uploadsOf("uWaterParams");
+			List<String> blend = uploadsOf("uWaterBlend");
+			assertAll(
+				() -> assertEquals("uWaterParams=2.0,3.0,4.0", params.get(params.size() - 1)),
+				() -> assertEquals("uWaterBlend=2.0,0.0", blend.get(blend.size() - 1))
+			);
+		} finally {
+			HdWaterArea.resetForTest();
+		}
 	}
 
 	/** The upload string the fake records for a vec3: {@code name=x,y,z}. */

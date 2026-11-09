@@ -84,6 +84,13 @@ public final class OpenGLTextureCache {
 					local100 = this.materialProvider.getPixelsArgb(arg0, 0.7F, local45, local45);
 					local102 = 6408;
 				}
+				// 592HD texture replacements: the authored art takes the game
+				// texture's colour and keeps its alpha, at the one place a stock
+				// world texture is built. Both upload paths go through it - the
+				// water and other RGB materials would otherwise never show the
+				// authored art, and an RGB upload simply has no alpha to keep.
+				local100 = com.jagex.game.runetek5.client.hd.content.HdTextureReplacements
+					.applied(arg0, local45, local100);
 				local80 = new OpenGl2DTexture(this.aClass19_Sub2_12, 3553, local102, local45, local45, local36.aByte92 != 0, local100, false);
 			}
 			local80.method4196(local36.aBoolean643, local36.aBoolean644);

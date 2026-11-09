@@ -153,30 +153,43 @@ class HdOptionsModelTest {
 		assertAll(
 			() -> assertEquals(HdSettings.valueLabel(HdFeature.WORLD_TEXTURES), this.model.rowValueText(texturesRow),
 				"the world-texture page is live now, so it carries no marker"),
-			// Pending and unavailable are still different claims and must not share
-			// a marker: the stock water row cannot ever do anything in this client,
-			// while the rows above are live and carry no marker at all.
+			// The water row is the renderer's own upstream key now, so it is live
+			// and carries no marker either.
 			() -> assertEquals(HdSettings.valueLabel(HdFeature.REFLECTIONS), this.model.rowValueText(reflectionsRow),
 				"a live row carries no marker"),
 			() -> assertEquals(HdSettings.valueLabel(HdFeature.CAUSTICS), this.model.rowValueText(causticsRow),
 				"a live row carries no marker"),
-			() -> assertEquals(HdSettings.valueLabel(HdFeature.WATER) + " "
-				+ HdSupport.UNAVAILABLE.marker(), this.model.rowValueText(waterRow))
+			() -> assertEquals(HdSettings.valueLabel(HdFeature.WATER), this.model.rowValueText(waterRow),
+				"a live row carries no marker")
 		);
+
+		// Unavailable is still its own claim, and the interface-scale rows are the
+		// ones that can never apply in this client.
+		this.model.apply(HdOptionsAction.tab(HdTab.DISPLAY.ordinal()), this.backend);
+		int scaleRow = indexOf(HdTab.DISPLAY, HdFeature.INTERFACE_SCALE);
+		assertEquals(HdSettings.valueLabel(HdFeature.INTERFACE_SCALE) + " "
+			+ HdSupport.UNAVAILABLE.marker(), this.model.rowValueText(scaleRow),
+			"an unavailable row still carries its marker");
 	}
 
 	@Test
 	@DisplayName("the legend flags follow the tab's rows")
 	void legend_shouldFollowTheTab() {
-		// The parity rows are on this tab before their renderer is: the legend
-		// must say so rather than let a stored choice look live.
+		// The lighting model was the last row here waiting for its renderer, so
+		// this tab now carries neither legend marker.
 		assertAll(
-			() -> assertTrue(this.model.hasPendingRows()),
+			() -> assertFalse(this.model.hasPendingRows()),
 			() -> assertFalse(this.model.hasUnavailableRows()),
 			() -> assertEquals(HdSupport.READY, this.model.rowSupport(
-				indexOf(HdTab.LIGHTING, HdFeature.CUTOUT_SHADOWS)))
+				indexOf(HdTab.LIGHTING, HdFeature.CUTOUT_SHADOWS))),
+			() -> assertEquals(HdSupport.READY, this.model.rowSupport(
+				indexOf(HdTab.LIGHTING, HdFeature.LIGHTING_MODEL)))
 		);
-		this.model.apply(HdOptionsAction.tab(HdTab.WORLD.ordinal()), this.backend);
+		// Soft particles still wait for their renderer, and the interface-scale
+		// rows can never apply here: each tab's legend says exactly that.
+		this.model.apply(HdOptionsAction.tab(HdTab.EFFECTS.ordinal()), this.backend);
+		assertTrue(this.model.hasPendingRows());
+		this.model.apply(HdOptionsAction.tab(HdTab.DISPLAY.ordinal()), this.backend);
 		assertTrue(this.model.hasUnavailableRows());
 	}
 

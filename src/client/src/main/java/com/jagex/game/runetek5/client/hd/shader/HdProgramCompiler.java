@@ -92,6 +92,27 @@ public final class HdProgramCompiler {
 			com.jagex.game.runetek5.client.hd.water.HdWaterSource.CUSTOM_FRAGMENT);
 	}
 
+	/**
+	 * Compiles the terrain-format water surface: the ground pass' vertex arrays,
+	 * the standard water fragment stage, and the layer's own depth byte as foam.
+	 */
+	public static Result compileGroundWater(HdShaderApi api) {
+		return compileGroundWater(api, com.jagex.game.runetek5.client.hd.water.HdWaterSource.FRAGMENT,
+			"592HD ground water");
+	}
+
+	/**
+	 * Compiles one terrain-format water surface: the ground pass' vertex arrays
+	 * over the fragment stage the region's surface names, so a ground layer runs
+	 * the same look the model water in the same region runs - the row's custom
+	 * surface, a reflective or breaking type included - instead of only the calm
+	 * stage.
+	 */
+	public static Result compileGroundWater(HdShaderApi api, String fragmentSource, String name) {
+		return compile(api, name,
+			com.jagex.game.runetek5.client.hd.water.HdWaterSource.GROUND_VERTEX, fragmentSource);
+	}
+
 	/** Compiles the sky dome, which shares this compile-and-report path. */
 	public static Result compileSky(HdShaderApi api) {
 		return compile(api, "592HD sky",

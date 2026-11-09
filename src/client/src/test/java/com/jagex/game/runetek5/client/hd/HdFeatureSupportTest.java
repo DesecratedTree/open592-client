@@ -3,6 +3,7 @@ package com.jagex.game.runetek5.client.hd;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.EnumSet;
@@ -22,16 +23,29 @@ import org.junit.jupiter.api.Test;
 @DisplayName("592HD row ownership")
 class HdFeatureSupportTest {
 
+	/** True when any row still offers this value label, whatever its key. */
+	private static boolean hasAnyLabel(String label) {
+		for (HdFeature feature : HdFeature.values()) {
+			for (int value = 0; value < feature.valueCount(); value++) {
+				if (label.equals(feature.valueLabel(value))) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	private static final Set<HdFeature> RENDERER_OWNED = EnumSet.of(
 		HdFeature.PER_PIXEL_LIGHTING, HdFeature.POINT_LIGHTS,
-		HdFeature.SHADOW_MAP, HdFeature.LIGHTING_DETAIL, HdFeature.WATER_HD,
+		HdFeature.SHADOW_MAP, HdFeature.LIGHTING_DETAIL, HdFeature.WATER,
 		HdFeature.TONEMAP, HdFeature.COLOUR_GRADING, HdFeature.FXAA, HdFeature.DITHER,
 		HdFeature.MIPMAPS, HdFeature.ANISOTROPIC,
 		HdFeature.FOG, HdFeature.DISTANCE_FADE, HdFeature.AMBIENT_OCCLUSION,
 		HdFeature.CARRIED_LIGHT, HdFeature.ROOM_LIGHT, HdFeature.ENVIRONMENT_LIGHTING,
 		HdFeature.SKY, HdFeature.DAY_NIGHT, HdFeature.CUTOUT_SHADOWS,
 		HdFeature.FOLIAGE_SWAY, HdFeature.GRASS_DISPLACEMENT, HdFeature.CAUSTICS, HdFeature.REFLECTIONS,
-		HdFeature.WORLD_TEXTURES, HdFeature.MATERIAL_MAPS, HdFeature.TERRAIN_BLEND);
+		HdFeature.WORLD_TEXTURES, HdFeature.MATERIAL_MAPS, HdFeature.TERRAIN_BLEND,
+		HdFeature.LIGHTING_MODEL, HdFeature.TEXTURE_REPLACEMENTS);
 
 	@Test
 	@DisplayName("a READY row is either stock-backed or renderer-owned, never neither")
@@ -57,22 +71,23 @@ class HdFeatureSupportTest {
 	}
 
 	@Test
-	@DisplayName("the water program is a renderer row now, switchable in the pane")
-	void waterHd_shouldBeRendererOwned() {
+	@DisplayName("the water row is upstream's key, with its three values")
+	void water_shouldBeRendererOwned() {
 		assertAll(
-			() -> assertEquals(HdSupport.READY, HdFeature.WATER_HD.support()),
-			() -> assertTrue(RENDERER_OWNED.contains(HdFeature.WATER_HD)),
-			() -> assertFalse(HdFeature.WATER_HD.appliesToStock(), "the renderer reads it, no stock flag"),
+			() -> assertEquals(HdSupport.READY, HdFeature.WATER.support()),
+			() -> assertTrue(RENDERER_OWNED.contains(HdFeature.WATER)),
+			() -> assertFalse(HdFeature.WATER.appliesToStock(), "the renderer reads it, no stock flag"),
 			// Off is the stock water draw, so index 0 must stay Off.
-			() -> assertEquals("Off", HdFeature.WATER_HD.valueLabel(0)),
-			() -> assertEquals("On", HdFeature.WATER_HD.valueLabel(1)),
+			() -> assertEquals("Off", HdFeature.WATER.valueLabel(0)),
+			() -> assertEquals("On", HdFeature.WATER.valueLabel(1)),
 			// The third value is the custom surface; the gate's indices name it.
-			() -> assertEquals("Custom", HdFeature.WATER_HD.valueLabel(2)),
-			() -> assertEquals(3, HdFeature.WATER_HD.valueCount(), "Off, On, Custom"),
-			// The stock water-presence row is not an upgrade row at all: this client
-			// always draws water, so it is inert and marked as unsupported.
-			() -> assertEquals(HdSupport.UNAVAILABLE, HdFeature.WATER.support()),
-			() -> assertEquals("Always", HdFeature.WATER.valueLabel(0), "the only state that ships")
+			() -> assertEquals("Custom", HdFeature.WATER.valueLabel(2)),
+			() -> assertEquals(3, HdFeature.WATER.valueCount(), "Off, On, Custom"),
+			// The old presence row is gone: the water row is not one of the
+			// unavailable placeholders, and no row still advertises the inert
+			// "Always" value it used to show.
+			() -> assertNotEquals(HdSupport.UNAVAILABLE, HdFeature.WATER.support()),
+			() -> assertFalse(hasAnyLabel("Always"), "no row still shows the inert Always value")
 		);
 	}
 
@@ -87,10 +102,9 @@ class HdFeatureSupportTest {
 			() -> assertEquals("Off", HdFeature.FOG.valueLabel(0)),
 			() -> assertEquals("Off", HdFeature.DISTANCE_FADE.valueLabel(0)),
 			() -> assertEquals("Off", HdFeature.AMBIENT_OCCLUSION.valueLabel(0)),
-			// The row the HD water pass reads is WATER_HD; the stock presence row is
-			// inert and must not be confused with it in either direction.
-			() -> assertEquals(HdSupport.READY, HdFeature.WATER_HD.support()),
-			() -> assertEquals(HdSupport.UNAVAILABLE, HdFeature.WATER.support())
+			// The water row is upstream's key and the renderer's own row, not a
+			// second inert presence row.
+			() -> assertEquals(HdSupport.READY, HdFeature.WATER.support())
 		);
 	}
 
@@ -189,6 +203,20 @@ class HdFeatureSupportTest {
 	}
 
 	@Test
+	@DisplayName("the lighting model is live, switchable in the pane")
+	void lightingModel_shouldBeRendererOwned() {
+		assertAll(
+			() -> assertEquals(HdSupport.READY, HdFeature.LIGHTING_MODEL.support()),
+			() -> assertTrue(RENDERER_OWNED.contains(HdFeature.LIGHTING_MODEL)),
+			() -> assertFalse(HdFeature.LIGHTING_MODEL.appliesToStock(), "the fragment stage is the row's only owner"),
+			// Off is the stock fixed-function draw, so index 0 must stay Off.
+			() -> assertEquals("Off", HdFeature.LIGHTING_MODEL.valueLabel(0)),
+			() -> assertEquals("lightingModel", HdFeature.LIGHTING_MODEL.key(),
+				"634HD's saved key, so a ported file reads the same row")
+		);
+	}
+
+	@Test
 	@DisplayName("no two rows write the same stock flag")
 	void stockTargets_shouldBeUnique() {
 		Set<HdStockTarget> used = new HashSet<HdStockTarget>();
@@ -212,8 +240,8 @@ class HdFeatureSupportTest {
 		assertAll(
 			() -> assertEquals(HdStockTarget.RENDERER, HdFeature.PER_PIXEL_LIGHTING.target()),
 			() -> assertEquals(HdSupport.READY, HdFeature.PER_PIXEL_LIGHTING.support()),
-			() -> assertEquals(HdStockTarget.RENDERER, HdFeature.WATER_HD.target()),
-			() -> assertEquals(HdSupport.READY, HdFeature.WATER_HD.support()),
+			() -> assertEquals(HdStockTarget.RENDERER, HdFeature.WATER.target()),
+			() -> assertEquals(HdSupport.READY, HdFeature.WATER.support()),
 			() -> assertEquals(HdStockTarget.RENDERER, HdFeature.TONEMAP.target()),
 			() -> assertEquals(HdSupport.READY, HdFeature.TONEMAP.support()),
 			() -> assertEquals(HdStockTarget.RENDERER, HdFeature.SOFT_PARTICLES.target()),

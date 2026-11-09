@@ -37,6 +37,9 @@ import com.jagex.game.runetek5.client.hd.ground.GroundTileSpace;
 import com.jagex.game.runetek5.client.hd.ground.HdGroundTextures;
 import com.jagex.game.runetek5.client.hd.ground.HdMaterialArt;
 import com.jagex.game.runetek5.client.hd.ground.HdMaterialMap;
+import com.jagex.game.runetek5.client.hd.material.HdAreaLight;
+import com.jagex.game.runetek5.client.hd.material.HdMaterialSurface;
+import com.jagex.game.runetek5.client.hd.material.HdMaterialTextures;
 import com.jagex.game.runetek5.client.hd.ground.HdTerrainBlend;
 import com.jagex.game.runetek5.client.hd.ground.HdTileMaterialMap;
 import com.jagex.game.runetek5.client.hd.ground.HdWorldPage;
@@ -61,12 +64,17 @@ import com.jagex.game.runetek5.client.hd.sky.HdSkyPipeline;
 import com.jagex.game.runetek5.client.hd.sky.HdSkyTime;
 import com.jagex.game.runetek5.client.hd.sky.SkyGate;	import com.jagex.game.runetek5.client.hd.water.HdWaterBreaking;
 	import com.jagex.game.runetek5.client.hd.water.HdWaterGate;
+import com.jagex.game.runetek5.client.hd.content.HdContent;
+import com.jagex.game.runetek5.client.hd.water.HdWaterGroundGate;
+	import com.jagex.game.runetek5.client.hd.water.HdWaterMaps;
 	import com.jagex.game.runetek5.client.hd.water.HdWaterPipeline;
 import com.jagex.game.runetek5.client.hd.water.HdWaterRequest;
 import com.jagex.game.runetek5.client.hd.water.HdWaterSource;
 import com.jagex.game.runetek5.client.hd.water.HdWaterTime;
+import com.jagex.game.runetek5.client.hd.water.HdWaterType;
 import com.jagex.game.runetek5.client.hd.shadow.ShadowBinding;
 import com.jagex.game.runetek5.client.hd.shadow.ShadowCaster;
+import com.jagex.game.runetek5.client.hd.shadow.ShadowCasterGate;
 import com.jagex.game.runetek5.client.hd.shadow.ShadowCasterSet;
 import com.jagex.game.runetek5.client.hd.shadow.SunShadowFrame;
 import com.jagex.game.runetek5.client.hd.shadow.SunShadowGate;
@@ -315,6 +323,16 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	/** The material's stock texture-effect slot for the draw being submitted; -1 when none. */
 	private int hdMaterialSlot = -1;
 
+	/**
+	 * Whether the bound material's texture alpha is its coverage. False for a
+	 * material whose alpha holds a specular or reflection strength (the stock
+	 * effect slots 1 and 7): the lit fragment then writes alpha 1, so a
+	 * reflective surface cannot be punched see-through by the scene's alpha test
+	 * or blending. Set where the material is bound, because that is where the
+	 * client's {@code MaterialType} is read; an unbound unit keeps coverage.
+	 */
+	private boolean hdAlphaCoverage = true;
+
 	/** True between a model material bind and the draw that consumes it. */
 	private boolean hdModelMaterialBind;
 
@@ -328,6 +346,14 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	private long hdGroundPageBuilds;
 
 	private long hdGroundPageDisposals;
+
+	/** One line the first time a ground draw reaches the page, and the first it cannot. */
+	private boolean hdGroundAtlasReported;
+
+	private boolean hdGroundDeclineReported;
+
+	/** Why the last ground draw kept the stock path; named in the one-shot report. */
+	private String hdGroundDeclineReason;
 
 	/** The world-texture page and its material map, built as materials appear. */
 	private OpenGl2DTexture hdWorldPage;
@@ -356,6 +382,14 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 
 	/** Casters the last {@link #hdSunShadowFrame} call actually submitted. */
 	private long hdShadowCasters;
+
+	private long hdShadowCastersSuppressed;
+
+	/** Of those, the ones HD water owned: the surface is not an occluder. */
+	private long hdShadowCastersWaterSuppressed;
+
+	/** Of those, the ones blended additively or modulating: light only. */
+	private long hdShadowCastersEffectSuppressed;
 
 	/** Material textures the last frame's casters bound; zero for a solid set. */
 	private long hdShadowMaterialBinds;
@@ -1141,6 +1175,83 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.anInt2320 = 8;
 	}
 
+	/**
+	 * 592HD seam: selects an image unit for the material-map binds.
+	 *
+	 * <p>The unit count is the cache's image-unit array, which is sized to the
+	 * highest sampler the 592HD programs name, so an out-of-range unit is a bug
+	 * here rather than a GL error at the driver.
+	 */
+	public void hdActiveTextureUnit(@OriginalArg(0) int unit) {
+		if (unit < 0 || unit >= this.aClass6Array1.length) {
+			return;
+		}
+		this.method1936(unit);
+	}
+
+	/**
+	 * 592HD seam: binds a texture on the selected image unit, or clears it.
+	 *
+	 * <p>Clearing a unit that is already empty is a no-op, not a call with a null
+	 * cache entry: {@link #setActiveTexture(Class6)} reads the current binding to
+	 * decide what to disable, and there is nothing to disable on an empty unit.
+	 */
+	public void hdSetActiveTexture(@OriginalArg(0) Class6 texture) {
+		if (texture == null && this.aClass6Array1[this.anInt2301] == null) {
+			return;
+		}
+		this.setActiveTexture(texture);
+	}
+
+	/**
+	 * 592HD seam: the texture this toolkit's cache names on {@code unit}.
+	 *
+	 * <p>The cache is what the stock path trusts when it decides whether a bind
+	 * is needed, so a test that proves a draw kept its own texture asserts on
+	 * this rather than on a raw {@code glGetIntegerv}: the two must agree, and
+	 * a silent disagreement here is exactly the bug that made material uploads
+	 * replace the surface being drawn.
+	 */
+	public Class6 hdBoundTexture(@OriginalArg(0) int unit) {
+		if (unit < 0 || unit >= this.aClass6Array1.length) {
+			return null;
+		}
+		return this.aClass6Array1[unit];
+	}
+
+	/**
+	 * 592HD seam: builds a texture without disturbing the draw's own texture.
+	 *
+	 * <p>{@link OpenGl2DTexture}'s constructors bind through
+	 * {@link #setActiveTexture(Class6)}, which acts on the selected unit and its
+	 * cache entry. A texture built while a stock draw has its art selected on
+	 * unit 0 would therefore replace the art of the primitive being drawn: the
+	 * surface samples a normal or packed map instead, losing its colour and its
+	 * environment and taking the map's height as its alpha. The atlas page build
+	 * has always saved and restored unit 0 for this reason; this is that rule in
+	 * one place, for every other HD upload.
+	 */
+	public OpenGl2DTexture hdCreateTexture(@OriginalArg(0) int target, @OriginalArg(1) int format,
+			@OriginalArg(2) int width, @OriginalArg(3) int height, @OriginalArg(4) boolean alpha,
+			@OriginalArg(5) int[] pixels, @OriginalArg(6) boolean flip) {
+		@Pc(1) int selected = this.anInt2301;
+		@Pc(2) Class6 restoring = this.aClass6Array1[0];
+		this.method1936(HdShaderSource.SAMPLER_UNIT_MATERIAL_NORMAL);
+		OpenGl2DTexture created = new OpenGl2DTexture(this, target, format, width, height, alpha, pixels, flip);
+		this.method1936(0);
+		this.setActiveTexture(restoring);
+		if (selected != 0) {
+			this.method1936(selected);
+		}
+		return created;
+	}
+
+	/** The same seam for an RGBA square upload: the material maps' shape. */
+	public OpenGl2DTexture hdCreateTexture(@OriginalArg(0) int width, @OriginalArg(1) int height,
+			@OriginalArg(2) int[] pixels) {
+		return hdCreateTexture(3553, 6408, width, height, false, pixels, false);
+	}
+
 	@OriginalMember(owner = "client!fd", name = "a", descriptor = "(BLclient!kj;)V")
 	public void setActiveTexture(@OriginalArg(1) Class6 arg0) {
 		// The shadow map is not a Class6: hdBindShadowTexture binds it raw and
@@ -1211,6 +1322,15 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	}
 
 	/**
+	 * The material maps of the draws that bound them; null until a draw with the
+	 * lighting-model row asks for one.
+	 */
+	private HdMaterialTextures hdMaterialTextures;
+
+	/** True while the four material-map units hold this draw's maps. */
+	private boolean hdMaterialUnitsBound;
+
+	/**
 	 * 592HD seam: binds the per-pixel lighting program for one model primitive.
 	 *
 	 * <p>All this method does is gather this draw's state - the stock shader
@@ -1247,6 +1367,25 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	 * @return true when the caller must call {@link #hdEndModelLighting()}
 	 */
 	public boolean hdBeginModelLighting(@OriginalArg(0) boolean textured, @OriginalArg(1) int vegetation) {
+		return hdBeginModelLighting(textured, vegetation, -1);
+	}
+
+	/**
+	 * The model seam with the primitive's material id.
+	 *
+	 * <p>The id is the one {@code GlModel} already binds as this group's stock
+	 * texture ({@code aShortArray107}), so the maps the lighting model samples are
+	 * the maps of the texture the draw actually shows. A draw without a material,
+	 * or one whose material has no maps, keeps the face normal - the term sum
+	 * without relief, never an empty unit.
+	 *
+	 * @param textured   whether the primitive has a material texture
+	 * @param vegetation this model's kind, from {@code HdVegetation}
+	 * @param material   the group's material id, or -1 when it has none
+	 * @return true when the caller must call {@link #hdEndModelLighting()}
+	 */
+	public boolean hdBeginModelLighting(@OriginalArg(0) boolean textured, @OriginalArg(1) int vegetation,
+			@OriginalArg(2) int material) {
 		if (!hdLightingAllowed()) {
 			return false;
 		}
@@ -1260,6 +1399,12 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		@Pc(14) HdDrawSpace space = HdDrawSpace.model(this.hdModelMatrix, sceneToEye);
 		HdDrawRequest request = hdDrawRequest(textured, vegetation)
 			.withMaterialEffectSlot(this.hdMaterialSlot);
+		// A reflective material's alpha is its specular strength, not its shape:
+		// only a coverage alpha may reach the framebuffer.
+		if (this.hdAlphaCoverage) {
+			request = request.with(HdDrawRows.Row.ALPHA_COVERAGE);
+		}
+		request = request.withMaterial(hdBindMaterialMaps(request, material));
 		// The reflection cube goes on its own unit before the program binds, and
 		// stays there until the draw ends. A draw that does not reflect leaves the
 		// unit exactly as it found it.
@@ -1282,6 +1427,45 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 			}
 		}
 		return bound;
+	}
+
+	/**
+	 * Binds this draw's material maps and reports which of them exist.
+	 *
+	 * <p>Nothing is decoded, allocated or bound unless the lighting-model row is on
+	 * for this draw and the primitive names a material, so a row-off frame never
+	 * touches the four units and a material the content does not describe simply
+	 * keeps the face normal. The maps are decoded once per material and cached;
+	 * a map that fails to read is absent rather than an empty unit.
+	 */
+	private HdMaterialSurface hdBindMaterialMaps(HdDrawRequest request, int material) {
+		if (!request.lightingModel() || material < 0) {
+			return HdMaterialSurface.OFF;
+		}
+		if (this.hdMaterialTextures == null) {
+			this.hdMaterialTextures = new HdMaterialTextures(this);
+		}
+		HdMaterialSurface surface = this.hdMaterialTextures.bind(material);
+		if (!surface.isIdentity()) {
+			this.hdMaterialUnitsBound = true;
+		}
+		return surface;
+	}
+
+	/**
+	 * Leaves the four material-map units empty and disabled, the way the stock
+	 * frame has them. Only a draw that bound them pays anything here.
+	 */
+	private void hdReleaseMaterialMaps() {
+		if (!this.hdMaterialUnitsBound) {
+			return;
+		}
+		for (int unit = HdShaderSource.SAMPLER_UNIT_MATERIAL_NORMAL; unit <= HdShaderSource.SAMPLER_UNIT_MATERIAL_HEIGHT; unit++) {
+			this.method1936(unit);
+			hdSetActiveTexture(null);
+		}
+		this.method1936(0);
+		this.hdMaterialUnitsBound = false;
 	}
 
 	/**
@@ -1480,7 +1664,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		return HdFrameState.of(this.lastSceneLightCount).withShadow(shadow)
 			.withStrength(hdDayNight().shadow()).withAtmosphere(HdAtmosphere.current())
 			.withLights(HdLightFrame.current()).withEnvironment(hdEnvironmentLight())
-			.withWaterSeconds(HdWaterTime.seconds());
+			.withWaterSeconds(HdWaterTime.seconds()).withAreaLight(HdAreaLight.capture());
 	}
 
 	/**
@@ -1571,6 +1755,13 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 			@OriginalArg(1) int tileUnits, @OriginalArg(2) int originX, @OriginalArg(3) int originZ,
 			HdGroundWater water, @OriginalArg(5) int material, @OriginalArg(6) float textureScale,
 			@OriginalArg(7) OpenGl2DTexture tileMaterials) {
+		// Terrain always belongs to the terrain program. It is not a water
+		// surface the surface program can draw: that program takes the model
+		// path's attribute layout, and binding it around this layer's fixed
+		// function submission raised GL_INVALID_OPERATION and left the tiles
+		// reading a chain nothing had filled - the missing ground textures a
+		// water region used to cause once the seam was opened for the region.
+		// The seam still owns every draw whose material selects it.
 		if (!hdLightingAllowed() || tileUnits <= 0) {
 			return false;
 		}
@@ -1582,7 +1773,23 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		// plants, so the frame's displacement block stays OFF and this draw is
 		// the same draw it was before the rows existed.
 		@Pc(10) HdDrawRequest request = hdDrawRequest(textured, 0).withWater(water);
+		request = request.withMaterial(hdBindMaterialMaps(request, material));
 		@Pc(12) int pageMaterial = hdBindGroundTextures(request, material, textureScale, tileMaterials);
+		// One line per outcome, the first time each happens. Whether a session's
+		// terrain is served by the page or keeps the stock texture decides where a
+		// lost ground texture is coming from, and the counters cannot answer it.
+		if (pageMaterial >= 0 && !this.hdGroundAtlasReported) {
+			this.hdGroundAtlasReported = true;
+			System.out.println("[592HD] ground atlas: material=" + material + " tiles=" + tileUnits
+				+ " scale=" + textureScale + " pageBuilds=" + this.hdGroundPageBuilds
+				+ " atlasBinds=" + this.hdGroundAtlasBinds);
+		} else if (pageMaterial < 0 && !this.hdGroundDeclineReported) {
+			this.hdGroundDeclineReported = true;
+			System.out.println("[592HD] ground stock draw: material=" + material + " textured=" + textured
+				+ " rows=" + request.worldTextures() + "/" + request.materialMaps()
+				+ " tileMap=" + (tileMaterials != null) + " pageBuilds=" + this.hdGroundPageBuilds
+				+ " reason=" + this.hdGroundDeclineReason);
+		}
 		@Pc(14) HdGroundTextures textures = HdGroundTextures.of(
 			request.worldTextures() && request.materialMaps(), pageMaterial, textured, tileUnits,
 			textureScale, HdTerrainBlend.of(request.terrainBlend()));
@@ -1613,12 +1820,20 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 			OpenGl2DTexture tileMaterials) {
 		if (!request.worldTextures() || !request.materialMaps() || material < 0 || super.materialProvider == null
 			|| !super.materialProvider.textureAvailable(material)) {
+			this.hdGroundDeclineReason = !request.worldTextures() ? "worldTextures off"
+				: !request.materialMaps() ? "materialMaps off"
+				: material < 0 ? "untextured layer"
+				: super.materialProvider == null ? "no material provider"
+				: "no texture for material " + material;
 			return -1;
 		}
 		int pageVersion = this.hdWorldPageVersion;
 		int cell = this.hdMaterialMap.register(material, super.materialProvider.getMetrics(material),
 			this.hdGroundArt);
 		if (cell < 0 || tileMaterials == null) {
+			this.hdGroundDeclineReason = tileMaterials == null
+				? "mesh has no tile material map"
+				: "atlas has no cell for material " + material;
 			return -1;
 		}
 		if (this.hdWorldPage == null || pageVersion != this.hdMaterialMap.version()) {
@@ -1629,6 +1844,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 			// the page does not hold never reads an empty cell. The next draw
 			// finds the page current and takes the atlas path.
 			buildGroundPage();
+			this.hdGroundDeclineReason = "page built this frame for material " + material;
 			return -1;
 		}
 		this.method1936(HdShaderSource.SAMPLER_UNIT_WORLD_TEXTURES);
@@ -1660,8 +1876,18 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		@Pc(3) OpenGl2DTexture retiredMap = this.hdMaterialIdMap;
 		this.hdWorldPage = new OpenGl2DTexture(this, 3553, 6408, HdWorldPage.size(), HdWorldPage.size(),
 			false, HdWorldPage.pixels(this.hdMaterialMap, super.materialProvider), false);
-		this.hdMaterialIdMap = new OpenGl2DTexture(this, 3553, 6408, HdMaterialMap.WIDTH, 1, false,
-			this.hdMaterialMap.texels(), 6408, false);
+		// The page deliberately does not take the Mipmaps row. Its cells share one
+		// chain, so a levels-2-and-deeper texel averages across a cell edge: the
+		// pixel proofs showed a two-material tile's mate colour and a plain tile's
+		// own colour both washing toward the neighbouring (often empty) cell, which
+		// is worse than the aliasing a chain would fix. Upstream avoids this with a
+		// texture array; this port samples the page linearly at level 0 only.
+		// hdGroundPageMipmapped() is the guard that keeps it that way.
+		// One texel per material id, as a square: the client's ids are 16-bit,
+		// and a single row of 65536 is wider than any texture this context
+		// allows. The shader addresses id n at (n % WIDTH, n / WIDTH).
+		this.hdMaterialIdMap = new OpenGl2DTexture(this, 3553, 6408, HdMaterialMap.WIDTH,
+			HdMaterialMap.HEIGHT, false, this.hdMaterialMap.texels(), 6408, false);
 		this.hdWorldPageVersion = this.hdMaterialMap.version();
 		this.hdGroundPageBuilds++;
 		this.method1936(0);
@@ -1703,6 +1929,15 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	/** How many times a page (and its material map) has been uploaded. */
 	public long hdGroundPageBuilds() {
 		return this.hdGroundPageBuilds;
+	}
+
+	/**
+	 * True when the world page carries the mip chain the Mipmaps row asks for.
+	 * The page is the one texture the stock cache does not build, so it is the
+	 * one that could be left out of the rows without anything noticing.
+	 */
+	public boolean hdGroundPageMipmapped() {
+		return this.hdWorldPage != null && this.hdWorldPage.hdIsMipmapped();
 	}
 
 	/** How many retired pages have been released to the driver. */
@@ -1894,6 +2129,9 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 			this.sunShadow = new SunShadowMap();
 		}
 		this.hdShadowCasters = 0L;
+		this.hdShadowCastersSuppressed = 0L;
+		this.hdShadowCastersWaterSuppressed = 0L;
+		this.hdShadowCastersEffectSuppressed = 0L;
 		this.hdShadowMaterialBinds = 0L;
 		boolean ran;
 		if (casters == null) {
@@ -1962,6 +2200,21 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		return this.hdShadowCasters;
 	}
 
+	/** Casters refused by {@link ShadowCasterGate} since the last shadow frame. */
+	public long hdShadowCastersSuppressed() {
+		return this.hdShadowCastersSuppressed;
+	}
+
+	/** Of those, how many were HD water's own surface. */
+	public long hdShadowCastersWaterSuppressed() {
+		return this.hdShadowCastersWaterSuppressed;
+	}
+
+	/** Of those, how many were additive or modulating effects. */
+	public long hdShadowCastersEffectSuppressed() {
+		return this.hdShadowCastersEffectSuppressed;
+	}
+
 	/** 592HD seam: the scene renderer's per-frame caster submission. */
 	public SunShadowSubmission hdShadowSubmission() {
 		return this.hdShadowSubmission;
@@ -1999,6 +2252,22 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 			return;
 		}
 		if (this.sunShadow != null && this.sunShadow.inPass()) {
+			return;
+		}
+		// 634HD's rule (50261e493e): a water draw and an additive or modulating
+		// effect are solid to a depth pass and nothing to the eye, so they are
+		// not casters. Counted rather than silently dropped: "no shadow" and
+		// "the caster was refused" are different bugs.
+		ShadowCasterGate.Refusal refusal = ShadowCasterGate.refusal(this.hdWaterActive(), this.anInt2316);
+		if (refusal != ShadowCasterGate.Refusal.NONE) {
+			this.hdShadowCastersSuppressed++;
+			// Which test refused it is what a missing shadow is diagnosed by, so
+			// the two counters are kept apart rather than folded into one.
+			if (refusal == ShadowCasterGate.Refusal.WATER) {
+				this.hdShadowCastersWaterSuppressed++;
+			} else {
+				this.hdShadowCastersEffectSuppressed++;
+			}
 			return;
 		}
 		this.hdShadowSubmission.recordModel(model, modelToScene.method5161());
@@ -2074,6 +2343,15 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	}
 
 	/**
+	 * 592HD seam: how many lighting-model/material/area uniforms the program has
+	 * pushed. Zero across a frame with the row off is the proof that the off state
+	 * makes no GL call at all.
+	 */
+	public long hdMaterialUploads() {
+		return this.hdLighting.materialUploads();
+	}
+
+	/**
 	 * 592HD seam: how many vegetation primitives were submitted for displacement
 	 * - a plant drawn while at least one sway row is on. Zero says the rig never
 	 * reached the rows; non-zero with no visible motion says the displacement
@@ -2091,8 +2369,35 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		// recorded is the world draw's own number: it says the scene fed the
 		// submission, which drawn alone cannot distinguish from a stale map.
 		return this.sunShadowFrame.stats() + "; sun casters drawn=" + this.hdShadowCasters
+			+ "; suppressed=" + this.hdShadowCastersSuppressed
+			+ " (water=" + this.hdShadowCastersWaterSuppressed + " effect="
+			+ this.hdShadowCastersEffectSuppressed + ")"
 			+ "; recorded=" + this.hdShadowSubmission.recorded()
 			+ "; model binds=" + this.hdLighting.binds();
+	}
+
+	/**
+	 * 592HD seam: the outermost world draw has finished and the interface is next.
+	 *
+	 * <p>Every world primitive already releases the lit program and its own sampler
+	 * units when it ends, so in the ordinary frame this finds nothing bound and
+	 * issues no GL call. It exists for the primitive that did not: a model or
+	 * ground layer that returns between {@code hdBeginModelLighting} and
+	 * {@link #hdEndModelLighting()} would leave the lighting program bound with the
+	 * shadow map, the reflection cube or the atlas units still filled, and the
+	 * interface drawn next is shaded and sampled by a scene program it never asked
+	 * for - the effects-on-the-UI report. The helpers are the ones
+	 * {@link #hdEndModelLighting()} uses, each already guarded by the flag that says
+	 * it bound something.
+	 */
+	public void hdEndWorldEffects() {
+		hdReleaseShadowTexture();
+		if (this.hdReflectionCubeBound) {
+			hdUnbindReflectionCube();
+		}
+		hdReleaseGroundTextures();
+		hdReleaseMaterialMaps();
+		this.hdLighting.unbind();
 	}
 
 	/** 592HD seam: returns the context to fixed function after the draw. */
@@ -2103,6 +2408,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		}
 		this.hdLighting.unbind();
 		hdReleaseGroundTextures();
+		hdReleaseMaterialMaps();
 	}
 
 	/**
@@ -2155,9 +2461,81 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	 * unavailable, or the row is off, in which case the caller runs the stock
 	 * selection untouched.
 	 */
+	/** 634HD's water maps, decoded once per context; null when the content lacks them. */
+	private HdWaterMaps hdWaterMaps;
+
+	/** Whether the open water draw has the two maps on their units. */
+	private boolean hdWaterMapsBound;
+
+	/** Whether this draw actually bound them, so teardown only restores what it changed. */
+	private boolean hdWaterMapsAttached;
+
+	/**
+	 * Whether the open ground draw opened the water seam itself, rather than a
+	 * region opening it. A layer outside a region owns the units and the program
+	 * it bound and must release them when it has drawn.
+	 */
+	private boolean hdWaterGroundOpened;
+
+	/** Test override: null when the maps answer for themselves. */
+	private Boolean hdWaterMapsForced;
+
+	/**
+	 * Binds the units every water draw samples: the frame's environment cube on
+	 * the unit the stock cube effects use, and 634HD's two water maps on their own.
+	 *
+	 * <p>Split out of {@link #hdBeginWater()} because a ground water layer outside
+	 * a region opens the seam for its own draw and needs exactly these units: a
+	 * lake in an ordinary region never reaches the client's water selection, which
+	 * is the region-only path.
+	 */
+	private void hdBindWaterUnits() {
+		// The frame's live point lights, counted the way the lighting program
+		// counts them, so a torch beside a lake glints on the water.
+		this.hdWater.setPointLights(this.lastSceneLightCount);
+		GlCubeTexture environment = this.method1946();
+		if (environment != null) {
+			// Unit 1, where the stock cube effects put their environment map: the
+			// region's own water reflects the sky from its first triangle.
+			this.method1936(HdWaterSource.ENVIRONMENT_UNIT);
+			this.setActiveTexture(environment);
+			this.method1936(0);
+			this.hdWaterCubeBound = true;
+		}
+		// 634HD's water is these maps: the shipped normal and foam art, bound on
+		// their own units before the program is selected so the surface samples
+		// them from its first triangle. A set that cannot be read is reported by
+		// hdWaterStats() and the wave-field surface draws instead.
+		if (this.hdWaterMapsForced != null) {
+			// The proofs of the wave field and the sun want a surface with no
+			// texture ripples on it; they say so here rather than the content
+			// deciding what a pixel test measures.
+			this.hdWaterMapsBound = this.hdWaterMapsForced.booleanValue();
+			this.hdWaterMapsAttached = false;
+		} else {
+			if (this.hdWaterMaps == null) {
+				this.hdWaterMaps = HdWaterMaps.load();
+			}
+			this.hdWaterMapsAttached = this.hdWaterMaps != null && this.hdWaterMaps.bind(this);
+			this.hdWaterMapsBound = this.hdWaterMapsAttached;
+		}
+		this.hdWater.setWaterMaps(this.hdWaterMapsBound);
+	}
+
 	public boolean hdBeginWater() {
-		boolean bound = this.hdWater.begin(HdWaterRequest.still(HdWaterGate.requested(),
-			HdWaterGate.custom(), HdWaterTime.seconds()));
+		this.hdBindWaterUnits();
+		HdWaterRequest request = HdWaterRequest.still(HdWaterGate.requested(), HdWaterGate.custom(),
+			HdWaterTime.seconds()).withEnvironment(this.method1946() != null).withCaustics(hdWaterCaustics());
+		boolean bound = this.hdWater.begin(request);
+		if (!bound && this.hdWaterMapsAttached && this.hdWaterMaps != null) {
+			// No program was selected, so the caller will not reach hdEndWater:
+			// release the units here rather than leave this seam's art bound for
+			// every pass after it.
+			this.hdWaterMaps.unbind(this);
+			this.hdWaterMapsAttached = false;
+			this.hdWaterMapsBound = false;
+			this.hdWater.setWaterMaps(false);
+		}
 		if (bound && !this.hdWaterReported) {
 			this.hdWaterReported = true;
 			System.out.println("[592HD] " + hdWaterStats());
@@ -2191,8 +2569,10 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 			: super.materialProvider.getMetrics(material);
 		boolean reflective = type != null && HdWaterGate.isReflectiveMaterial(type.aByte89);
 		boolean breaking = type != null && HdWaterGate.isBreakingMaterial(type.aByte89);
-		GlCubeTexture environment = type != null && HdWaterGate.samplesEnvironment(type.aByte89)
-			? this.method1946() : null;
+		// Every water surface samples the sky, so every water material binds the
+		// cube when the frame has one - not only the types the stock client called
+		// reflective or breaking.
+		GlCubeTexture environment = this.method1946();
 		if (environment != null) {
 			// Unit 1, where the stock cube effects put their environment map.
 			this.method1936(HdWaterSource.ENVIRONMENT_UNIT);
@@ -2201,16 +2581,130 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 			this.hdWaterCubeBound = true;
 		}
 		HdWaterRequest request = HdWaterRequest.current(HdWaterGate.requested(), HdWaterGate.custom(), reflective,
-			environment != null, HdWaterTime.seconds());
+			environment != null, HdWaterTime.seconds()).withCaustics(hdWaterCaustics())
+			.withType(hdWaterType(material));
 		if (breaking) {
 			request = request.withBreaking(HdWaterBreaking.of(type.aByte88, type.anInt6933));
 		}
 		this.hdWater.select(request);
 	}
 
+	/**
+	 * The water type a material's texture names: its {@code materials.json}
+	 * {@code water} block, or the plain WATER type when the entry has none. This
+	 * is 634HD's {@code hdWaterType(slot)}: the type travels with the draw, so a
+	 * swamp's water is green and shallow-glinted while a lake is the default teal.
+	 */
+	private static HdWaterType hdWaterType(int material) {
+		if (material < 0) {
+			return HdWaterType.DEFAULT;
+		}
+		HdContent content = HdContent.get();
+		return HdWaterType.of(content == null ? null : content.material(material));
+	}
+
+	/**
+	 * The Caustics row as the water surface's pattern strength. The row's values
+	 * are off/on, so on is a full-strength net; the custom surface scales it in.
+	 */
+	private float hdWaterCaustics() {
+		return HdSettings.value(HdFeature.CAUSTICS) != 0 ? 1.0F : 0.0F;
+	}
+
 	/** True while HD water owns the program, so nothing else may bind over it. */
 	public boolean hdWaterActive() {
 		return this.hdWater.bound();
+	}
+
+	/**
+	 * 592HD seam: opens the terrain-format water surface for one ground water
+	 * layer.
+	 *
+	 * <p>Only a layer that actually stands in water is taken
+	 * ({@link HdWaterGroundGate}); the region's own selection covers the whole
+	 * visible ground mesh, dry tiles included, so owning every layer paints
+	 * ground with a surface that samples the water maps instead of the ground
+	 * atlas.
+	 *
+	 * <p>Inside an open region this only swaps the program the layer draws with -
+	 * the region owns the units and the clock. Outside one, the layer opens the
+	 * seam for its own draw and closes it again: a lake in an ordinary region is
+	 * drawn twice per frame, once by the water pass and once by the terrain pass,
+	 * at the same depth, so it must run the surface in both or the second pass
+	 * replaces the water.
+	 *
+	 * @param foam the stock per-tile depth over 255, the stock effect's own input
+	 * @param water the client's own measure of the water over this tile
+	 */
+	public boolean hdBeginWaterGround(int material, float foam, HdGroundWater water) {
+		// The layer's own material is the same answer the model path reads: a
+		// reflective or breaking water type keeps its look on terrain too, and a
+		// lake's material is the only thing that says its tiles are water.
+		MaterialType type = material < 0 || super.materialProvider == null ? null
+			: super.materialProvider.getMetrics(material);
+		if (!HdWaterGroundGate.owns(HdWaterGate.requested(),
+			type != null && HdWaterGate.isWaterMaterial(type.aByte89), water)) {
+			return false;
+		}
+		boolean opened = false;
+		if (!this.hdWater.bound()) {
+			this.hdBindWaterUnits();
+			HdWaterRequest standalone = HdWaterRequest.still(HdWaterGate.requested(), HdWaterGate.custom(),
+				HdWaterTime.seconds()).withEnvironment(this.method1946() != null)
+				.withCaustics(hdWaterCaustics());
+			if (!this.hdWater.begin(standalone)) {
+				this.hdEndWater();
+				return false;
+			}
+			opened = true;
+		}
+		boolean reflective = type != null && HdWaterGate.isReflectiveMaterial(type.aByte89);
+		boolean breaking = type != null && HdWaterGate.isBreakingMaterial(type.aByte89);
+		HdWaterRequest request = HdWaterRequest.current(HdWaterGate.requested(), HdWaterGate.custom(),
+			reflective, this.method1946() != null, HdWaterTime.seconds()).withCaustics(hdWaterCaustics())
+			.withType(hdWaterType(material));
+		if (breaking) {
+			request = request.withBreaking(HdWaterBreaking.of(type.aByte88, type.anInt6933));
+		}
+		if (!this.hdWater.beginGround(request, foam)) {
+			if (opened) {
+				this.hdEndWater();
+			}
+			return false;
+		}
+		this.hdWaterGroundOpened = opened;
+		return true;
+	}
+
+	/** 592HD seam: closes what {@link #hdBeginWaterGround(int, float, HdGroundWater)} opened. */
+	public void hdEndWaterGround() {
+		if (this.hdWaterGroundOpened) {
+			this.hdWaterGroundOpened = false;
+			// This layer opened the seam for its own draw, so it releases the
+			// units and the program rather than handing back someone's region.
+			this.hdEndWater();
+			return;
+		}
+		this.hdWater.endGround();
+	}
+
+	/** How many ground water layers drew with the terrain-format surface. */
+	public long hdWaterGroundBinds() {
+		return this.hdWater.groundBinds();
+	}
+
+	/**
+	 * True while a ground layer owns the terrain-format program. It must be false
+	 * again the moment that layer has drawn, or every later water draw in the
+	 * frame runs a program written for the ground pass' vertex arrays.
+	 */
+	public boolean hdWaterGroundBound() {
+		return this.hdWater.groundBound();
+	}
+
+	/** The surface the last ground layer ran, for the pixel proof. */
+	public HdWaterGate.Surface hdWaterLastGroundSurface() {
+		return this.hdWater.lastGroundSurface();
 	}
 
 	/**
@@ -2224,6 +2718,12 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 			this.setActiveTexture(null);
 			this.method1936(0);
 			this.hdWaterCubeBound = false;
+		}
+		if (this.hdWaterMapsAttached && this.hdWaterMaps != null) {
+			// The maps live on units the stock path does not use, but a draw after
+			// this one must not inherit them either way.
+			this.hdWaterMaps.unbind(this);
+			this.hdWaterMapsAttached = false;
 		}
 		this.hdWater.unbind();
 	}
@@ -2248,6 +2748,25 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		return this.hdWater.breakingBinds();
 	}
 
+	/**
+	 * Test hook: says whether the water maps are bound, instead of asking the
+	 * content. A pixel proof of the wave field, the sun or the palette wants the
+	 * surface it is measuring, not the one the shipped art happens to make.
+	 */
+	public void hdWaterMapsForTest(boolean available) {
+		this.hdWaterMapsForced = Boolean.valueOf(available);
+	}
+
+	/** Test hook: lets the content answer again after a forced value. */
+	public void hdWaterMapsForTest() {
+		this.hdWaterMapsForced = null;
+	}
+
+	/** True when the shipped water maps decoded. Never touches GL. */
+	public boolean hdWaterMapsAvailable() {
+		return this.hdWaterMaps != null && this.hdWaterMaps.available();
+	}
+
 	/** Test hook: the wave amplitude, so a flat surface can be rendered. */
 	public void hdWaterFlowForTest(float amplitude) {
 		this.hdWater.setFlowForTest(amplitude);
@@ -2258,6 +2777,7 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		return "hd water: available=" + this.hdWater.available()
 			+ " reflective=" + this.hdWater.reflectiveAvailable() + " draws=" + this.hdWater.binds()
 			+ " reflectiveDraws=" + this.hdWater.reflectiveBinds()
+			+ " maps=" + this.hdWaterMapsBound
 			+ (this.hdWater.logLine().isEmpty() ? "" : " [" + this.hdWater.logLine() + "]");
 	}
 
@@ -2854,15 +3374,20 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		}
 		if (this.anInt2314 != arg1 || hdReflectionStale(arg1, hdModelBind)) {
 			if (arg1 < 0) {
+				// No material at all: nothing says its alpha is a strength
+				// mask, so a later untextured draw keeps writing coverage.
+				this.hdAlphaCoverage = true;
 				this.method1917();
 				this.setActiveTexture(null);
 				this.method1900(0);
-				if (!this.aBoolean192) {
+				if (!this.aBoolean192 && !this.hdWaterGroundBound()) {
 					this.effectManager.method5318(arg2, arg0, 0);
 				}
 			} else {
 				@Pc(13) OpenGl2DTexture local13 = this.textureCache.method1549(arg1);
 				@Pc(19) MaterialType local19 = super.materialProvider.getMetrics(arg1);
+				this.hdAlphaCoverage = local19 == null
+					|| HdReflection.alphaIsCoverage(local19.aByte89, local19.aByte92 != 0);
 				if (local19.aByte91 == 0 && local19.aByte93 == 0) {
 					this.method1917();
 				} else {
@@ -2870,9 +3395,12 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 					@Pc(39) int local39 = local35 * 50;
 					this.method1963((float) (local19.aByte93 * (this.anInt2274 % local39)) / (float) local39, (float) (local19.aByte91 * (this.anInt2274 % local39)) / (float) local39, 0.0F);
 				}
-				if (this.aBoolean192) {
+				if (this.aBoolean192 || this.hdWaterGroundBound()) {
 					// HD water owns the program already; enabling the stock ARB
 					// water program here would leave two programs enabled at once.
+					// The ground surface is the second way in: a lake layer opens
+					// the seam itself outside any region, and the stock effect
+					// must not be selected over it.
 					if (!this.hdWaterActive()) {
 						this.effectManager.method5318(arg2, arg0, 3);
 					}
@@ -3171,9 +3699,8 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		this.anInt2287 = offsetY;
 		this.aBoolean192 = true;
 		// 592HD: this is the one place the stock water effect is selected for a
-		// water region. The HD program takes its place when the "592HD water"
-		// row asks for it; otherwise the stock selection and its program run
-		// untouched.
+		// water region. The HD program takes its place when the Water row asks
+		// for it; otherwise the stock selection and its program run untouched.
 		if (!this.hdBeginWater()) {
 			this.effectManager.method5318(false, false, 3);
 			this.effectManager.waterEffect.method5380();
@@ -3634,6 +4161,14 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 	 * exactly what a screenshot would. Returns false, having issued nothing,
 	 * when no row is on or the program could not compile; the presented frame
 	 * is then the stock one.
+	 *
+	 * <p>It reads the whole framebuffer, the interface included: the rows are the
+	 * scene's effects, but this seam cannot tell the two apart. Moving the pass
+	 * into the world draw was measured and rejected - applied there the scene
+	 * came back black (`HdFrameContractGlTest`, terrain `rgb=0/1/0` to
+	 * `rgb=0/1/2`), because the pass owns a captured frame that only exists at
+	 * present time. Keeping the UI out of it needs the world rendered into its
+	 * own target, which is a pipeline change, not a call site.
 	 *
 	 * @return true when the pass was applied to this frame
 	 */
@@ -4272,7 +4807,8 @@ public final class GlToolkit extends com.jagex.game.runetek5.graphics.Toolkit {
 		// smaller than the image-unit space glActiveTexture addresses, so size it
 		// to the highest sampler the shader names.
 		this.aClass6Array1 = new Class6[Math.max(this.anInt2306,
-			HdShaderSource.SAMPLER_UNIT_TILE_MATERIALS + 1)];
+			Math.max(HdShaderSource.SAMPLER_UNIT_MATERIAL_HEIGHT,
+				HdWaterSource.WATER_FOAM_UNIT) + 1)];
 		this.texture2d = new OpenGl2DTexture(this, 3553, 6408, 1, 1);
 		this.aClass6_Sub1_2 = new OpenGl2DTexture(this, 3553, 6408, 1, 1);
 		this.aClass6_Sub1_1 = new OpenGl2DTexture(this, 3553, 6408, 1, 1);

@@ -3,6 +3,7 @@ package com.jagex.game.runetek5.client.frame;
 import com.jagex.game.runetek5.client.camera.CameraFrameUpdate;
 import com.jagex.game.runetek5.client.hd.sky.HdSkyTime;
 import com.jagex.game.runetek5.client.hd.sway.HdWindTime;
+import com.jagex.game.runetek5.client.hd.water.HdWaterArea;
 import com.jagex.game.runetek5.client.hd.water.HdWaterTime;
 import com.jagex.game.runetek5.client.input.mouse.MiddleMouseCamera;
 import com.jagex.game.runetek5.config.material.MaterialType;
@@ -37,7 +38,12 @@ public final class FramePresentation {
 		CameraFrameUpdate.step(deltaMillis);
 		// Water waves are presentation too: the same delta that eases the camera
 		// drives them, so they move at the same speed at any frame rate.
+		// The area is resolved first: its speed is the clock's rate, and its
+		// ripples' tiling crossfades on the same delta, so a teleport fades over
+		// three seconds at any frame rate.
+		HdWaterArea.capture();
 		HdWaterTime.advance(deltaMillis);
+		HdWaterArea.smoothStep(deltaMillis);
 		// Vegetation leans on the same delta and for the same reason: a copse
 		// that swayed per tick would speed up with the tick rate, and one that read
 		// a wall clock would jump when a paused client resumed.

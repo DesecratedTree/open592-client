@@ -19,6 +19,10 @@ sourceSets {
                 'template/jdk-stubs/src/main/java'
             ]
         }
+        // 634HD's JSON, material art and shaders ship beside the client tree.
+        resources {
+            srcDirs = ['src/client/src/main/resources']
+        }
     }
     // Isolated client-only compilation. The client tree declares Signlink
     // while the loader tree declares SignLink: distinct JVM names, but the
@@ -34,6 +38,9 @@ sourceSets {
                 'template/deob-annotations/src/main/java',
                 'template/jdk-stubs/src/main/java'
             ]
+        }
+        resources {
+            srcDirs = ['src/client/src/main/resources']
         }
     }
     test {

@@ -2,6 +2,7 @@ package com.jagex.game.runetek5.scene.ground;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -93,10 +94,10 @@ class HdGroundAtlasGlTest {
 
 	/**
 	 * The stock texture-effect enum whose combine is {@code GL_MODULATE} -
-	 * {@code method1900(1)}. It is not the GL enum itself: the material records an
+	 * {@code method1900(0)}. It is not the GL enum itself: the material records an
 	 * effect index, and the toolkit maps it.
 	 */
-	private static final int MODULATE_EFFECT = 1;
+	private static final int MODULATE_EFFECT = 0;
 
 	private static final int SIZE = 64;
 
@@ -210,7 +211,7 @@ class HdGroundAtlasGlTest {
 		HdSettings.set(HdFeature.REFLECTIONS, 0);
 		HdSettings.set(HdFeature.FOLIAGE_SWAY, 0);
 		HdSettings.set(HdFeature.GRASS_DISPLACEMENT, 0);
-		HdSettings.set(HdFeature.WATER_HD, 0);
+		HdSettings.set(HdFeature.WATER, 0);
 		HdSettings.set(HdFeature.WORLD_TEXTURES, 0);
 		HdSettings.set(HdFeature.MATERIAL_MAPS, 0);
 		HdSettings.set(HdFeature.TERRAIN_BLEND, 0);
@@ -687,6 +688,152 @@ class HdGroundAtlasGlTest {
 
 	// -- Frames -----------------------------------------------------------
 
+	@Test
+	@Order(11)
+	@DisplayName("a material whose cell cannot be refilled keeps its stock texture, and its neighbour keeps the atlas")
+	void unfillableCell_shouldFallBackToTheStockDraw() {
+		// The report this reproduces: one grass tile draws without texture while
+		// the tile beside it draws with it. Both materials have art when the page
+		// takes them; then grass' art stops answering and a newcomer makes the
+		// page rebuild, so the cell the map published for grass can no longer be
+		// filled. Left empty it samples as black with alpha zero, which the
+		// ground pass' GREATER test discards - no colour, no depth, a hole where
+		// one material's ground should be. Released instead, grass keeps the stock
+		// single-texture draw the session already has cached, and its neighbour
+		// keeps sampling the page.
+		HdSettings.set(HdFeature.WATER, 0);
+		GlGroundLayer grass = layer(GRASS_MATERIAL);
+		GlGroundLayer neighbour = layer(NEIGHBOUR_MATERIAL);
+		GlGroundLayer newcomer = layer(NEWCOMER_MATERIAL);
+
+		// Stock references, in the client's own order with the rows off. The
+		// first frame of a program is the frame that compiles it and draws
+		// nothing, so each material's reference is its second frame - which is
+		// also the one whose stock texture is in the cache.
+		drawClientOrder(grass, false, false);
+		Shot stockGrass = drawClientOrder(grass, false, false);
+		drawClientOrder(neighbour, false, false);
+		Shot stockNeighbour = drawClientOrder(neighbour, false, false);
+
+		// Both materials join the page: the joining frame draws stock, the frame
+		// after it samples the atlas.
+		drawClientOrder(grass, true, true);
+		Shot controlGrass = drawClientOrder(grass, true, true);
+		drawClientOrder(neighbour, true, true);
+		Shot controlNeighbour = drawClientOrder(neighbour, true, true);
+
+		// Grass' art goes, and the newcomer's arrival forces the rebuild that
+		// finds its published cell unfillable.
+		materials.noArt.add(Integer.valueOf(GRASS_MATERIAL));
+		drawClientOrder(newcomer, true, true);
+		Shot afterGrass = drawClientOrder(grass, true, true);
+		Shot afterNeighbour = drawClientOrder(neighbour, true, true);
+
+		int drawn = drawnPixels(afterGrass.pixels);
+		int grassVsStock = differing(afterGrass.pixels, stockGrass.pixels);
+		int stockClear = clearPixels(stockGrass.pixels);
+		int afterClear = clearPixels(afterGrass.pixels);
+		int neighbourVsControl = differing(afterNeighbour.pixels, controlNeighbour.pixels);
+		int neighbourVsStock = differing(afterNeighbour.pixels, stockNeighbour.pixels);
+		System.out.println("[hd-atlas] unfillable cell: grass atlas before " + controlGrass.atlasBinds
+			+ ", after " + afterGrass.atlasBinds + ", drawn " + drawn + ", vsStock " + grassVsStock
+			+ ", clear " + afterClear + " (stock " + stockClear + "); neighbour atlas "
+			+ afterNeighbour.atlasBinds + ", vsControl " + neighbourVsControl + ", vsStock "
+			+ neighbourVsStock);
+
+		assertAll(
+			() -> assertTrue(controlGrass.atlasBinds > 0L,
+				"the control frame must prove grass reached the page before it lost its art"),
+			// The released cell is not published, so no draw reads a zeroed texel.
+			() -> assertEquals(0L, afterGrass.atlasBinds,
+				"a cell the page cannot refill must stop being published"),
+			// And what the tile shows is the stock single-texture draw - the same
+			// frame it drew with the rows off, texel for texel.
+			() -> assertEquals(0, grassVsStock,
+				"the tile must fall back to its stock texture, not a zeroed texel: "
+					+ grassVsStock + " px differ"),
+			() -> assertTrue(drawn > 0, "the tile must still be painted: " + drawn),
+			() -> assertEquals(stockClear, afterClear,
+				"and carry no hole the stock draw does not have: " + afterClear + " vs "
+					+ stockClear + " clear px"),
+			// The neighbour is untouched by grass' release: same bind, same pixels.
+			() -> assertTrue(afterNeighbour.atlasBinds > 0L,
+				"the neighbour must keep sampling the atlas through the rebuild"),
+			() -> assertEquals(0, neighbourVsControl,
+				"and draw exactly what it drew before: " + neighbourVsControl + " px differ"),
+			// This fixture's page reproduces the stock art texel for texel (that is
+			// the class' own contract), so the neighbour's bind above - not a pixel
+			// difference - is what says it is still served by the atlas.
+			() -> assertEquals(0, neighbourVsStock,
+				"the page still draws the neighbour's own art: " + neighbourVsStock + " px"),
+			() -> assertEquals(GL11.GL_NO_ERROR, GL11.glGetError())
+		);
+	}
+
+	/**
+	 * One frame in the client's client-order path for a tile outside a water
+	 * region: the region's water pass, then the terrain pass, over the same mesh.
+	 */
+	private static Shot drawClientOrder(GlGroundLayer layer, boolean worldTextures,
+			boolean materialMaps) {
+		HdSettings.set(HdFeature.WORLD_TEXTURES, worldTextures ? 1 : 0);
+		HdSettings.set(HdFeature.MATERIAL_MAPS, materialMaps ? 1 : 0);
+		HdSettings.set(HdFeature.TERRAIN_BLEND, 0);
+		toolkit.hdGroundFrameBegin();
+		long before = toolkit.hdGroundAtlasBinds();
+		beginFrame();
+		cameraMatrices();
+		uploadScene();
+		toolkit.method1906(true);
+		toolkit.method1904();
+		toolkit.AA(-1, 1583160, 40, 127);
+		layer.method1462(new int[] { 0 }, 1);
+		toolkit.l();
+		layer.method1462(new int[] { 0 }, 1);
+		return new Shot(capture(), toolkit.hdGroundAtlasBinds() - before);
+	}
+
+	/**
+	 * One frame in the client's own order for a tile outside a water region: the
+	 * ground pass draws the layer, then the terrain pass draws it again.
+	 */
+	private static Shot drawBothPasses(GlGroundLayer layer) {
+		HdSettings.set(HdFeature.WORLD_TEXTURES, 1);
+		HdSettings.set(HdFeature.MATERIAL_MAPS, 1);
+		HdSettings.set(HdFeature.TERRAIN_BLEND, 0);
+		toolkit.hdGroundFrameBegin();
+		long before = toolkit.hdGroundAtlasBinds();
+		beginFrame();
+		cameraMatrices();
+		uploadScene();
+		toolkit.method1906(true);
+		layer.method1462(new int[] { 0 }, 1);
+		layer.method1462(new int[] { 0 }, 1);
+		return new Shot(capture(), toolkit.hdGroundAtlasBinds() - before);
+	}
+
+	/** Pixels the tile painted: everything but the frame's clear colour. */
+	private static int drawnPixels(int[] frame) {
+		int count = 0;
+		for (int pixel : frame) {
+			if ((pixel & 0xFFFFFF) != 0x0000FF) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/** Pixels still holding the frame's clear colour: a hole in a drawn tile. */
+	private static int clearPixels(int[] frame) {
+		int count = 0;
+		for (int pixel : frame) {
+			if ((pixel & 0xFFFFFF) == 0x0000FF) {
+				count++;
+			}
+		}
+		return count;
+	}
+
 	/** One frame down the live path, with the three atlas rows set as asked. */
 	private static Shot draw(GlGroundLayer layer, boolean worldTextures, boolean materialMaps,
 			boolean terrainBlend) {
@@ -749,7 +896,7 @@ class HdGroundAtlasGlTest {
 		toolkit.UA(0xFF0000, 100, (int) FAR - 300);
 		toolkit.method1918(false);
 		toolkit.copyLights(0, new PointLight[0]);
-		toolkit.method1900(1);
+		toolkit.method1900(0);
 		toolkit.method1938(-1, true);
 	}
 
@@ -1020,6 +1167,90 @@ class HdGroundAtlasGlTest {
 	 * primary is red, the mate yellow - colours no lighting term in this frame
 	 * can turn into the other.
 	 */
+	/**
+	 * The page must stay off the Mipmaps chain even when the row asks for one.
+	 * Its cells share a single chain, so a coarse level averages across a cell
+	 * edge into its neighbour - usually an empty cell - which the pixel proofs
+	 * here measured as a two-material tile losing its mate colour and a plain
+	 * tile drawing no red texel at all. Upstream can mipmap these textures
+	 * because it uploads them as an array, one layer per material.
+	 */
+	@Test
+	@Order(9)
+	@DisplayName("the atlas page never takes the Mipmaps chain: one chain would blend cells together")
+	void page_shouldNeverBeMipmapped() {
+		HdSettings.set(HdFeature.MIPMAPS, 1);
+		long before = toolkit.hdGroundPageBuilds();
+		int probe = -1;
+		// The chain would be made on the frame a material joins the page, so the
+		// probe draws a material the page does not hold with the row on.
+		for (int material = LAST_MATERIAL; material >= 0 && toolkit.hdGroundPageBuilds() == before; material--) {
+			probe = material;
+			draw(layer(material), true, true, false);
+		}
+		long builds = toolkit.hdGroundPageBuilds() - before;
+		boolean mipmapped = toolkit.hdGroundPageMipmapped();
+		HdSettings.set(HdFeature.MIPMAPS, 0);
+
+		System.out.println("[hd-atlas] mipmaps row on: page builds " + builds + " at material " + probe
+			+ ", page mipmapped=" + mipmapped);
+
+		assertAll(
+			() -> assertTrue(builds > 0L, "the probe must have rebuilt the page under the row"),
+			() -> assertFalse(mipmapped,
+				"a cell cannot share a mip chain: a coarse level averages its neighbour in"),
+			() -> assertEquals(GL11.GL_NO_ERROR, GL11.glGetError())
+		);
+	}
+
+	@Test
+	@Order(10)
+	@DisplayName("a dry tile keeps its own art through both of the client's passes, with no hole in it")
+	void bothPasses_shouldKeepTheTilesArt() {
+		// The client draws a ground layer twice - the water pass, then the
+		// terrain pass - and a lake in an ordinary region is exactly that pair.
+		// This is the frame the user's report is about: the tile must still be
+		// textured after the second pass, and neither pass may leave a hole.
+		GlGroundLayer gradient = gradientLayer();
+		Shot stock = draw(gradient, false, false, false);
+		drawBothPasses(gradient);
+		Shot atlas = drawBothPasses(gradient);
+
+		int colours = distinctColours(atlas.pixels);
+		int spread = redSpread(atlas.pixels);
+		int stockClear = clearPixels(stock.pixels);
+		int atlasClear = clearPixels(atlas.pixels);
+		System.out.println("[hd-atlas] two passes: binds " + atlas.atlasBinds + ", " + colours
+			+ " colours, red spread " + spread + ", clear " + atlasClear + " (stock "
+			+ stockClear + ")");
+
+		assertAll(
+			() -> assertTrue(atlas.atlasBinds > 0L,
+				"both passes must draw the page: " + atlas.atlasBinds),
+			// The proof the report asked for: the drawn tile has the source art's
+			// variance, so the texture is visible instead of a flat vertex colour.
+			() -> assertTrue(spread > 100,
+				"the tile must show its art's range, not a flat colour: " + spread),
+			() -> assertTrue(colours > 16,
+				"and the whole ramp rather than one texel: " + colours),
+			() -> assertEquals(stockClear, atlasClear,
+				"neither pass may leave a hole the stock draw does not have"),
+			() -> assertEquals(GL11.GL_NO_ERROR, GL11.glGetError())
+		);
+	}
+
+	/**
+	 * Three materials no other proof here draws. Grass and its neighbour both have
+	 * art; grass is the one that loses it, which is the live shape of the report -
+	 * one grass tile without texture beside one that draws.
+	 */
+	private static final int GRASS_MATERIAL = 206;
+
+	private static final int NEIGHBOUR_MATERIAL = 207;
+
+	/** Its arrival is what makes the page rebuild while grass' art is gone. */
+	private static final int NEWCOMER_MATERIAL = 208;
+
 	private static final class AtlasMaterials implements unpack_Sub1 {
 
 		private final MaterialType primaryType = new MaterialType();
@@ -1031,6 +1262,13 @@ class HdGroundAtlasGlTest {
 
 		/** Art overrides, so a test can repaint a material that is already paged. */
 		private final java.util.Map<Integer, Integer> overrides = new java.util.HashMap<Integer, Integer>();
+
+		/**
+		 * Materials whose art this sampler can no longer produce, though the stock
+		 * cache may still hold the texture it built earlier - exactly the split a
+		 * live session shows when a material's art is gone but its texture is cached.
+		 */
+		private final java.util.Set<Integer> noArt = new java.util.HashSet<Integer>();
 
 		private void repaint(int material, int colour) {
 			this.overrides.put(Integer.valueOf(material), Integer.valueOf(colour));
@@ -1075,7 +1313,7 @@ class HdGroundAtlasGlTest {
 
 		@Override
 		public boolean textureAvailable(int material) {
-			return material >= 0 && material <= LAST_MATERIAL;
+			return material >= 0 && material <= NEWCOMER_MATERIAL;
 		}
 
 		@Override
@@ -1093,6 +1331,9 @@ class HdGroundAtlasGlTest {
 		@Override
 		public int[] getPixelsArgb(int material, float brightness, int width, int height) {
 			this.asked.append(material).append('@').append(width).append(' ');
+			if (this.noArt.contains(Integer.valueOf(material))) {
+				return null;
+			}
 			int colour = artColour(material);
 			int[] pixels = new int[width * height];
 			if (material == GRADIENT_MATERIAL) {

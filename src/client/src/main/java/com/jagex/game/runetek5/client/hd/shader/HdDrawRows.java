@@ -87,7 +87,23 @@ public final class HdDrawRows {
 		 * mask. On its own it says the settings want the blend; the tile's own
 		 * pair and weight travel separately, in its material map.
 		 */
-		TERRAIN_BLEND;
+		TERRAIN_BLEND,
+
+		/**
+		 * The lighting-model row: the term-sum lit surface - mapped normal, the
+		 * occlusion and roughness maps, a sky/ground hemisphere and a roughness
+		 * highlight - and the area's own sun/ambient tint. On its own it says the
+		 * settings want the model; the maps themselves travel separately, as
+		 * {@code HdMaterialSurface}.
+		 */
+		LIGHTING_MODEL,
+
+		/**
+		 * This draw's texture alpha is its coverage: the fragment keeps the
+		 * sampled alpha, so a cut-out keeps its shape. Off means the material's
+		 * alpha is a strength mask or absent, and the fragment writes alpha 1.
+		 */
+		ALPHA_COVERAGE;
 
 		/** This row's bit in a set's mask. */
 		long bit() {

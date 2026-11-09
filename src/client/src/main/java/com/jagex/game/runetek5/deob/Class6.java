@@ -140,6 +140,11 @@ public abstract class Class6 implements Binding {
 		return this.anInt5449;
 	}
 
+	/** 592HD: true when a texture-quality row generated this texture's mip chain. */
+	public final boolean hdIsMipmapped() {
+		return this.hdMipmapped;
+	}
+
 	/**
 	 * 592HD: applies the Mipmaps and Anisotropic rows to this texture.
 	 *

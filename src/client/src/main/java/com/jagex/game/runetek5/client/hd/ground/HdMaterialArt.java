@@ -64,18 +64,32 @@ public final class HdMaterialArt {
 		if (provider == null || material < 0 || !provider.textureAvailable(material)) {
 			return null;
 		}
+		// A material with art but no metrics row is one the stock upload never
+		// describes either - and a 592 cache has exactly one of those: the
+		// placeholder material id whose metrics entry is absent. Its art still
+		// exists, and refusing it here left the tile on the stock draw, which for
+		// a material the cache cannot describe binds no texture at all: a flat,
+		// textureless tile beside textured ones. With no record there is no
+		// aBoolean640 asking for an RGB upload, so the art is the alpha
+		// sampler's - the upload an absent record would have made.
 		MaterialType type = provider.getMetrics(material);
-		if (type == null) {
-			return null;
-		}
 		boolean opaque = uploadsRgb(type);
 		int[] art = opaque
 			? provider.getPixels(false, material, BRIGHTNESS, cellSize, cellSize)
 			: provider.getPixelsArgb(material, BRIGHTNESS, cellSize, cellSize);
-		if (art == null || art.length < cellSize * cellSize) {
+		// Exactly one cell, not "at least": the page copies this array with a
+		// cell-sized stride, so art in any other shape - a provider that answers
+		// with the material's native size rather than the one asked for - would
+		// land skewed across the cell instead of scaled into it. Such a material
+		// keeps the stock single-texture draw, which is the same art drawn right,
+		// and the ground draw's one-line report names it.
+		if (art == null || art.length != cellSize * cellSize) {
 			return null;
 		}
-		return opaque ? opaque(art) : art;
+		// The same replacement rule the stock upload uses, so a terrain cell and
+		// a stock texture of one material can never show different art.
+		return com.jagex.game.runetek5.client.hd.content.HdTextureReplacements.applied(material, cellSize,
+			opaque ? opaque(art) : art);
 	}
 
 	/**

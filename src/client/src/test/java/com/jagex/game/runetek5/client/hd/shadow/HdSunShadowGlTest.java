@@ -1258,7 +1258,7 @@ class HdSunShadowGlTest {
 		SunShadowMap map = toolkit.hdSunShadow();
 		assertTrue(map.hasFrame(), "the pass should have filled the map");
 		toolkit.hdBindShadowTexture(map.textureName());
-		boolean bound = pipeline.begin(HdDrawRequest.current(HdDrawRows.of(Row.NORMALS, Row.FOG), 0, 7681),
+		boolean bound = pipeline.begin(HdDrawRequest.current(HdDrawRows.of(Row.NORMALS, Row.FOG), 0, 8448),
 			HdDrawSpace.MODEL,
 			HdFrameState.of(0)
 				.withShadow(map.binding(radius)));
@@ -1314,7 +1314,7 @@ class HdSunShadowGlTest {
 		SunShadowMap map = toolkit.hdSunShadow();
 		assertTrue(map.hasFrame(), "the pass should have filled the map");
 		toolkit.hdBindShadowTexture(map.textureName());
-		assertTrue(pipeline.begin(HdDrawRequest.current(HdDrawRows.of(Row.NORMALS, Row.FOG), 0, 7681),
+		assertTrue(pipeline.begin(HdDrawRequest.current(HdDrawRows.of(Row.NORMALS, Row.FOG), 0, 8448),
 			HdDrawSpace.MODEL,
 			HdFrameState.of(0)
 				.withShadow(map.binding(2))), "the gate refused the shadowed draw");
@@ -1574,7 +1574,7 @@ class HdSunShadowGlTest {
 	private static void unshadowedFrame() {
 		beginFrame();
 		applySun(0.0F, 0.0F, 1.0F);
-		boolean bound = pipeline.begin(HdDrawRequest.current(HdDrawRows.of(Row.NORMALS, Row.FOG), 0, 7681),
+		boolean bound = pipeline.begin(HdDrawRequest.current(HdDrawRows.of(Row.NORMALS, Row.FOG), 0, 8448),
 			HdDrawSpace.MODEL,
 			HdFrameState.of(0));
 		toolkit.method1934(receiverColours, receiverNormals, null, receiverVertices);
@@ -1602,7 +1602,7 @@ class HdSunShadowGlTest {
 
 		SunShadowMap map = toolkit.hdSunShadow();
 		toolkit.hdBindShadowTexture(map.textureName());
-		assertTrue(pipeline.begin(HdDrawRequest.current(HdDrawRows.of(Row.NORMALS, Row.FOG), 0, 7681),
+		assertTrue(pipeline.begin(HdDrawRequest.current(HdDrawRows.of(Row.NORMALS, Row.FOG), 0, 8448),
 			HdDrawSpace.MODEL,
 			HdFrameState.of(0)
 				.withShadow(map.binding(2))), "the gate refused the shadowed draw");

@@ -53,7 +53,7 @@ class HdTileMaterialMapTest {
 	}
 
 	@Test
-	@DisplayName("texels are row-major, four bytes per tile")
+	@DisplayName("texels are row-major, two 16-bit ids per tile")
 	void texels_shouldBeRowMajor() {
 		HdTileMaterialMap map = new HdTileMaterialMap();
 		map.set(2, 1, 7, 8);
@@ -61,11 +61,29 @@ class HdTileMaterialMapTest {
 		int at = (1 * HdTileMaterialMap.SIZE + 2) * HdTileMaterialMap.STRIDE;
 		byte[] bytes = map.bytes();
 		assertAll(
-			() -> assertEquals(7, bytes[at] & 0xFF),
-			() -> assertEquals(8, bytes[at + 1] & 0xFF),
-			() -> assertEquals(HdTileMaterialMap.FULL_WEIGHT, bytes[at + 2] & 0xFF),
-			() -> assertEquals(0, bytes[at + 3] & 0xFF, "the flags byte is reserved"),
+			() -> assertEquals(7, bytes[at] & 0xFF, "the primary's low byte"),
+			() -> assertEquals(0, bytes[at + 1] & 0xFF, "the primary's high byte"),
+			() -> assertEquals(8, bytes[at + 2] & 0xFF, "the mate's low byte"),
+			() -> assertEquals(0, bytes[at + 3] & 0xFF, "the mate's high byte"),
 			() -> assertEquals(HdTileMaterialMap.TILES * HdTileMaterialMap.STRIDE, bytes.length)
+		);
+	}
+
+	@Test
+	@DisplayName("a material id past a byte keeps its own value, not a truncated one")
+	void idsPastAByte_shouldSurviveThePacking() {
+		HdTileMaterialMap map = new HdTileMaterialMap();
+		// A live 592 region draws these three: 408 is the material whose tile lost
+		// its texture when the map stored ids in one byte each - 408 became 152,
+		// and the fragment sampled material 152's cell instead.
+		map.set(4, 6, 408, 181);
+
+		assertAll(
+			() -> assertEquals(408, map.primary(4, 6)),
+			() -> assertEquals(181, map.mate(4, 6)),
+			() -> assertEquals(HdTileMaterialMap.FULL_WEIGHT, map.weight(4, 6)),
+			() -> assertTrue(map.blended()),
+			() -> assertEquals(65536, HdTileMaterialMap.MATERIAL_LIMIT, "the packing is 16-bit")
 		);
 	}
 
@@ -81,6 +99,18 @@ class HdTileMaterialMapTest {
 			() -> assertEquals(-1, map.primary(HdTileMaterialMap.SIZE, 0)),
 			() -> assertEquals(0, map.weight(HdTileMaterialMap.SIZE, 0)),
 			() -> assertFalse(map.blended(), "nothing was written")
+		);
+	}
+
+	@Test
+	@DisplayName("an id the packing cannot hold reads as no material, not as another id")
+	void outOfRangeId_shouldReadAsNone() {
+		HdTileMaterialMap map = new HdTileMaterialMap();
+		map.set(0, 1, 40000, -1);
+
+		assertAll(
+			() -> assertEquals(40000, map.primary(0, 1), "a 16-bit id is stored whole"),
+			() -> assertEquals(-1, map.mate(0, 1))
 		);
 	}
 }

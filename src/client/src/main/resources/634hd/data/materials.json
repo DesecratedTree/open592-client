@@ -1,0 +1,1885 @@
+{
+  "materials": [
+    {
+      "texture": 63,
+      "name": "wooden planks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 66,
+      "name": "loose rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 70,
+      "name": "packed dirt",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 72,
+      "name": "rough rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 75,
+      "name": "wood streaks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 82,
+      "name": "gravel",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 83,
+      "name": "rock face",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 90,
+      "name": "pebbled ground",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 91,
+      "name": "gravel path",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 96,
+      "name": "pebbles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 105,
+      "name": "boulder rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 108,
+      "name": "mossy patches",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15
+    },
+    {
+      "texture": 109,
+      "name": "pebbled ground, shaded",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 40,
+      "name": "fire cape",
+      "flowMap": "lava_flow_map.png",
+      "flowStrength": 0.05,
+      "flowDuration": [12, 4],
+      "uvScroll": [0, 0.1],
+      "unlit": true
+    },
+    {
+      "texture": 110,
+      "name": "lava",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.6,
+      "emissive": "emissive.png",
+      "emissiveStrength": 2.5,
+      "flowMap": "lava_flow_map.png",
+      "flowStrength": 0.05,
+      "flowDuration": [36, 22],
+      "uvScroll": [0, -0.05],
+      "unlit": true,
+      "light": [1.0, 0.45, 0.12]
+    },
+    {
+      "texture": 895,
+      "name": "swamp water",
+      "specular": 0,
+      "water": { "surface": "#172114", "foam": "#737865", "depth": "#29521a", "opacity": 0.8, "specular": 0.1, "gloss": 100, "normalStrength": 0.05, "fresnel": 0.3, "duration": 1.2, "flat": true }
+    },
+    {
+      "texture": 125,
+      "name": "speckled gravel",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04
+    },
+    {
+      "texture": 127,
+      "name": "streaked stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 132,
+      "name": "bark",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 140,
+      "name": "mottled plaster, shaded",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.2,
+      "parallax": 0.02
+    },
+    {
+      "texture": 154,
+      "name": "sand",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.2,
+      "parallax": 0.02,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 159,
+      "name": "weathered boards",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4
+    },
+    {
+      "texture": 160,
+      "name": "wood boards",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 163,
+      "name": "wall boards",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4
+    },
+    {
+      "texture": 181,
+      "name": "rocky ground",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 185,
+      "name": "straw grass",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 202,
+      "name": "brick pattern",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 213,
+      "name": "fine sand",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.2,
+      "parallax": 0.02
+    },
+    {
+      "texture": 228,
+      "name": "wood grain",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 254,
+      "name": "mottled plaster",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.2,
+      "parallax": 0.02
+    },
+    {
+      "texture": 265,
+      "name": "stony ground",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 276,
+      "name": "meadow grass",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 294,
+      "name": "rough plaster",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.2,
+      "parallax": 0.02
+    },
+    {
+      "texture": 295,
+      "name": "rough plaster, shaded",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.2,
+      "parallax": 0.02
+    },
+    {
+      "texture": 309,
+      "name": "rocky ground",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 322,
+      "name": "stone wall",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 387,
+      "name": "wood grain fine",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4
+    },
+    {
+      "texture": 505,
+      "name": "flagstones",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 510,
+      "name": "cracked earth",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 519,
+      "name": "grass",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 638,
+      "name": "water",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 1.2
+    },
+    {
+      "texture": 10001,
+      "name": "634HD bark (detail, tools/make_detail_textures.py)",
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 10002,
+      "name": "634HD stone (detail, tools/make_detail_textures.py)",
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 10003,
+      "name": "634HD brick (detail, tools/make_detail_textures.py)",
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 10004,
+      "name": "634HD roof tiles (detail, tools/make_detail_textures.py)",
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 10005,
+      "name": "634HD planks (detail, tools/make_detail_textures.py)",
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 10006,
+      "name": "634HD grass (detail, tools/make_detail_textures.py)",
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 10007,
+      "name": "634HD dirt (detail, tools/make_detail_textures.py)",
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 10008,
+      "name": "634HD cobbles (detail, tools/make_detail_textures.py)",
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 57,
+      "name": "blotchy pale stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 64,
+      "name": "wooden planks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 67,
+      "name": "gritty grey stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 73,
+      "name": "dark wooden planks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 86,
+      "name": "woven straw mat",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 101,
+      "name": "tree bark",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 111,
+      "name": "pale ground with sparse gravel",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 139,
+      "name": "pale ground with sparse gravel (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 206,
+      "name": "wooden planks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 236,
+      "name": "mottled pale stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 244,
+      "name": "scattered pebbles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 248,
+      "name": "rough tree bark",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 249,
+      "name": "scattered pebbles on dirt",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 250,
+      "name": "plaid woven cloth",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 257,
+      "name": "woven wicker",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 266,
+      "name": "rough grey rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 273,
+      "name": "plaid woven cloth",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 277,
+      "name": "dark woven fabric",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 283,
+      "name": "bamboo stalks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 291,
+      "name": "scattered pebbles on dirt (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 297,
+      "name": "scattered pebbles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 301,
+      "name": "cracked stone floor tiles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 302,
+      "name": "dark mottled stone (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 303,
+      "name": "pale mottled stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 312,
+      "name": "lush grass",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 314,
+      "name": "dark woven fabric",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 326,
+      "name": "dark mottled stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 384,
+      "name": "tree bark",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 426,
+      "name": "straw thatch",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 491,
+      "name": "heather and flowers",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 495,
+      "name": "grass and moss",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 499,
+      "name": "rocky dirt",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 504,
+      "name": "rocky ground",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 508,
+      "name": "rocky sandstone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 520,
+      "name": "dense grass",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 595,
+      "name": "wooden floorboards",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 600,
+      "name": "stone floor slabs",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 724,
+      "name": "cloudy marble",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 2,
+      "name": "dark wooden planks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 3,
+      "name": "wooden floorboards",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 6,
+      "name": "red clay roof tiles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 11,
+      "name": "mottled red granite",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 16,
+      "name": "oak wood grain",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 22,
+      "name": "wooden crate",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 23,
+      "name": "mossy wooden planks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 39,
+      "name": "scattered pebbles (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 43,
+      "name": "stone floor tiles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 44,
+      "name": "dark wooden roof shingles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 45,
+      "name": "grey stone roof tiles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 55,
+      "name": "mossy wooden roof shingles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 68,
+      "name": "streaked weathered stone (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 69,
+      "name": "streaked weathered stone (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 77,
+      "name": "draped cloth folds",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 78,
+      "name": "flowing draped cloth",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 80,
+      "name": "small cobbles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 81,
+      "name": "granite",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 87,
+      "name": "woven straw mat (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 92,
+      "name": "small rounded pebbles (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 98,
+      "name": "packed dirt (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 104,
+      "name": "rough rock face (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 107,
+      "name": "weathered rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 112,
+      "name": "bumpy sandstone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 114,
+      "name": "woven lattice",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 116,
+      "name": "blotchy pale stone (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 129,
+      "name": "crumpled rough rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 135,
+      "name": "grass",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 144,
+      "name": "woven cloth",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 146,
+      "name": "mossy stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 148,
+      "name": "mossy stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 150,
+      "name": "rough gravel",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 152,
+      "name": "cobbles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 161,
+      "name": "tree bark (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 168,
+      "name": "cracked dry mud",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 172,
+      "name": "mossy stone paving",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 173,
+      "name": "wooden planks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 176,
+      "name": "streaked weathered stone (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 177,
+      "name": "crumpled rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 180,
+      "name": "streaked stone wall",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 184,
+      "name": "dry straw and dead grass (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 188,
+      "name": "weathered stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 199,
+      "name": "pitted rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 200,
+      "name": "pitted rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 203,
+      "name": "stone bricks (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 205,
+      "name": "weathered grey wooden boards (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 214,
+      "name": "dark mottled stone (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 216,
+      "name": "layered rough stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 218,
+      "name": "plaid cloth",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 220,
+      "name": "spotted fur",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 229,
+      "name": "mottled dirt",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 232,
+      "name": "scattered pebbles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 238,
+      "name": "rough rock with lichen",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 239,
+      "name": "pale mottled stone (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 240,
+      "name": "dark mottled stone (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 241,
+      "name": "mottled stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 269,
+      "name": "mottled dirt",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 285,
+      "name": "pitted stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 287,
+      "name": "mottled pale stone (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 288,
+      "name": "scattered pebbles (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 290,
+      "name": "rough rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 292,
+      "name": "dark woven fabric (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 293,
+      "name": "pale ground with sparse gravel (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 296,
+      "name": "scattered pebbles (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 300,
+      "name": "rocky ground",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 313,
+      "name": "dark woven fabric (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 319,
+      "name": "horizontal wooden siding",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 323,
+      "name": "wooden planks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 327,
+      "name": "rough tree bark (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 335,
+      "name": "crumpled rough stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 345,
+      "name": "fish-scale roof tiles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 364,
+      "name": "feathered thatch",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 369,
+      "name": "dry straw and dead grass (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 373,
+      "name": "fur",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 375,
+      "name": "stone bricks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 377,
+      "name": "stone bricks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 388,
+      "name": "mottled stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 395,
+      "name": "wood grain",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 397,
+      "name": "feathered thatch",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 401,
+      "name": "stone bricks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 402,
+      "name": "stone bricks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 408,
+      "name": "lumpy rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 411,
+      "name": "weathered planks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 425,
+      "name": "rocky sandstone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 435,
+      "name": "weathered wood grain",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 441,
+      "name": "rubble and stones",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 443,
+      "name": "gravel",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 444,
+      "name": "fish-scale roof tiles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 483,
+      "name": "woven sackcloth",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.1,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 492,
+      "name": "stone floor tiles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 493,
+      "name": "basket weave",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 497,
+      "name": "rough rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 500,
+      "name": "cobblestones",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 506,
+      "name": "rough bark",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 507,
+      "name": "stone floor slabs",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 512,
+      "name": "mossy rocky ground",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.25,
+      "parallax": 0.03,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 513,
+      "name": "cracked flagstones",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 515,
+      "name": "rocky sandstone (variant)",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 535,
+      "name": "woven wicker",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 540,
+      "name": "woven wicker",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 547,
+      "name": "wooden door panels",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 550,
+      "name": "gritty stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 564,
+      "name": "stone bricks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 571,
+      "name": "wooden crate panel",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 572,
+      "name": "gravel",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.35,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 594,
+      "name": "rough rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 596,
+      "name": "rounded cobbles",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 602,
+      "name": "scratched rock",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 608,
+      "name": "stone wall blocks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 612,
+      "name": "faceted stone",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.45,
+      "parallax": 0.04,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 616,
+      "name": "cobblestone paving",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 619,
+      "name": "stacked stone bricks",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.4,
+      "parallax": 0.05,
+      "albedo": "albedo.png"
+    },
+    {
+      "texture": 674,
+      "name": "mossy ground",
+      "normal": "normal.png",
+      "orm": "orm.png",
+      "height": "normal.png",
+      "specular": 0.15,
+      "albedo": "albedo.png"
+    }
+  ]
+}

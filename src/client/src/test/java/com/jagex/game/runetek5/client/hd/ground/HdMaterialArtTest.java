@@ -88,21 +88,46 @@ class HdMaterialArtTest {
 	void art_shouldRefuseWhatThePageCannotFill() {
 		StubMaterials missing = new StubMaterials();
 		missing.available = false;
-		StubMaterials undescribed = new StubMaterials();
-		undescribed.describe = false;
 		StubMaterials nullArt = new StubMaterials();
 		nullArt.nullArt = true;
 		StubMaterials shortArt = new StubMaterials();
 		shortArt.shortBy = 1;
+		// The page copies a cell with a cell-sized stride, so more texels than one
+		// cell is not usable either: it would land skewed rather than scaled.
+		StubMaterials longArt = new StubMaterials();
+		longArt.shortBy = -1;
 
 		assertAll(
 			() -> assertNull(HdMaterialArt.art(null, 2), "no provider, no art"),
 			() -> assertNull(HdMaterialArt.art(missing, 2), "art the provider does not have"),
-			() -> assertNull(HdMaterialArt.art(undescribed, 2),
-				"a material with no metric row has no upload to follow, and the stock samplers index it"),
 			() -> assertNull(HdMaterialArt.art(nullArt, 2), "a sampler that answers null"),
 			() -> assertNull(HdMaterialArt.art(shortArt, 2), "less than a cell is not a cell"),
+			() -> assertNull(HdMaterialArt.art(longArt, 2), "nor is more than a cell"),
 			() -> assertNull(HdMaterialArt.art(new StubMaterials(), -1), "an id a 592 cache cannot address")
+		);
+	}
+
+	@Test
+	@DisplayName("a material with art but no metric row still reaches the page, from the alpha sampler")
+	void art_shouldTakeAMaterialWithNoMetricRow() {
+		// A 592 cache's placeholder material - id 0 in the metrics file - has no
+		// metric row at all, while its texture exists. Refusing it here left that
+		// tile on the stock draw, and the stock draw binds no texture for a
+		// material the cache cannot describe: a flat, textureless tile beside
+		// textured ones. With no row there is no aBoolean640 asking for an RGB
+		// upload, so the art is the alpha sampler's - the upload an absent row
+		// makes.
+		StubMaterials materials = new StubMaterials();
+		materials.describe = false;
+
+		int[] art = HdMaterialArt.art(materials, 2);
+
+		assertAll(
+			() -> assertTrue(art != null, "the page can hold art the cache cannot describe"),
+			() -> assertEquals(TRANSLUCENT, art == null ? 0 : art[0],
+				"from the alpha sampler, alpha as it answers"),
+			() -> assertEquals(1, materials.argbCalls),
+			() -> assertEquals(0, materials.rgbCalls, "an absent row claims no RGB upload")
 		);
 	}
 

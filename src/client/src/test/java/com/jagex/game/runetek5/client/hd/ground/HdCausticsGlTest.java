@@ -21,9 +21,13 @@ import com.jagex.game.runetek5.cache.node.GlGroundLayer;
 import com.jagex.game.runetek5.cache.node.PointLight;
 import com.jagex.game.runetek5.client.hd.HdFeature;
 import com.jagex.game.runetek5.client.hd.HdSettings;
+import com.jagex.game.runetek5.client.hd.water.HdWaterGate;
+import com.jagex.game.runetek5.client.hd.water.HdWaterSource;
 import com.jagex.game.runetek5.client.hd.water.HdWaterTime;
 import com.jagex.game.runetek5.deob.Class177;
+import com.jagex.game.runetek5.deob.Class99_Sub1;
 import com.jagex.game.runetek5.deob.GlVboElementsArrayBuffer;
+import com.jagex.game.runetek5.graphics.gl.GlCubeTexture;
 import com.jagex.game.runetek5.graphics.gl.GlToolkit;
 import com.jagex.game.runetek5.scene.ground.GlGround;
 
@@ -82,6 +86,13 @@ class HdCausticsGlTest {
 	/** One channel step tolerated by the comparison, for rounding only. */
 	private static final int CHANNEL_STEP = 2;
 
+	/**
+	 * The frame's sky cube's side. Fine enough that a ripple's bend - a few
+	 * hundredths of the cube's width - moves the sampled texel: the proof is
+	 * that the sky in the water moves, so a coarse gradient would hide it.
+	 */
+	private static final int SKY_SIZE = 64;
+
 	private static GlToolkit toolkit;
 
 	private static Frame frame;
@@ -131,6 +142,9 @@ class HdCausticsGlTest {
 
 		createTarget();
 		toolkit.setHeap(toolkit.createHeap(1 << 26));
+		// A sky with structure: with one flat colour in the cube, bending the
+		// reflection changes nothing and a still-looking surface could pass.
+		toolkit.setSunCubeTexture(new Sky(gradientSky()));
 		createTerrain();
 
 		Path preferences = Files.createTempDirectory("hd-caustics");
@@ -146,6 +160,10 @@ class HdCausticsGlTest {
 		HdSettings.set(HdFeature.ROOM_LIGHT, 0);
 		HdSettings.set(HdFeature.ENVIRONMENT_LIGHTING, 0);
 		HdSettings.set(HdFeature.CAUSTICS, 0);
+		// Every caustics proof below measures the terrain program's own draw, so
+		// the Water row must be Off unless a test asks for it: a water layer's
+		// surface would own the tile and the pattern would be a different pass.
+		HdSettings.set(HdFeature.WATER, 0);
 		HdWaterTime.reset();
 
 		JavaMatrix camera = new JavaMatrix();
@@ -227,6 +245,125 @@ class HdCausticsGlTest {
 	}
 
 	@Test
+	@DisplayName("a ground water layer draws through the terrain-format surface inside the client's region")
+	void waterRegion_shouldDrawTheGroundLayerThroughTheSurfaceProgram() {
+		HdSettings.set(HdFeature.WATER, 1);
+		HdWaterTime.reset();
+		try {
+			// Outside a region there is no water draw at all: the layer is stock
+			// and the seam is never reached, which is what the row promises.
+			long idle = toolkit.hdWaterBinds();
+			long idleGround = toolkit.hdWaterGroundBinds();
+			int[] stock = drawFrame(true, false);
+			long outside = toolkit.hdWaterBinds() - idle;
+			long outsideGround = toolkit.hdWaterGroundBinds() - idleGround;
+
+			// The client's own water region, then the layer inside it.
+			beginFrame();
+			cameraMatrices();
+			uploadScene();
+			toolkit.method1906(true);
+			HdSettings.set(HdFeature.MIPMAPS, 1);
+			long before = toolkit.hdWaterBinds();
+			long groundBefore = toolkit.hdWaterGroundBinds();
+			toolkit.AA(-1, 1583160, 40, 127);
+			HdSettings.set(HdFeature.MIPMAPS, 0);
+			boolean opened = toolkit.hdWaterActive();
+			long openedBinds = toolkit.hdWaterBinds() - before;
+			boolean mapsOnTheirUnit = toolkit.hdWaterMapsAvailable()
+				&& toolkit.hdBoundTexture(HdWaterSource.WATER_NORMAL_UNIT) != null;
+			final int minFilter;
+			if (toolkit.hdWaterMapsAvailable()) {
+				toolkit.hdActiveTextureUnit(HdWaterSource.WATER_NORMAL_UNIT);
+				minFilter = GL11.glGetTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER);
+				toolkit.hdActiveTextureUnit(0);
+			} else {
+				minFilter = 0;
+			}
+
+			wetLayer.method1462(new int[] { 0, 1 }, 2);
+			// The layer must hand the program back the moment it has drawn, or the
+			// rest of the region - and every later water draw - runs a program
+			// written for the ground pass and loses its texture.
+			boolean released = !toolkit.hdWaterGroundBound();
+			wetLayer.method1462(new int[] { 0, 1 }, 2);
+			long groundBinds = toolkit.hdWaterGroundBinds() - groundBefore;
+			boolean stillOwned = toolkit.hdWaterActive();
+			int[] frame = capture();
+			int lit = litMask(frame).length;
+			toolkit.l();
+			boolean closed = !toolkit.hdWaterActive();
+			int differing = differing(frame, stock);
+
+			System.out.println("[hd-water-ground] outside=" + outside + "/" + outsideGround
+				+ " opened=" + opened + " regionBinds=" + openedBinds + " groundBinds=" + groundBinds
+				+ " released=" + released
+				+ " maps=" + mapsOnTheirUnit + " minFilter=" + minFilter + " lit=" + lit
+				+ " stillOwned=" + stillOwned + " closed=" + closed + " pxVsStock=" + differing);
+
+			assertAll(
+				() -> assertEquals(0L, outside, "a layer outside a region must stay stock"),
+				() -> assertEquals(0L, outsideGround, "no ground surface outside a region"),
+				() -> assertTrue(opened, "the client's water region must open the HD seam"),
+				() -> assertEquals(1L, openedBinds, "the region opens the region program once"),
+				() -> assertEquals(2L, groundBinds,
+					"each layer must draw with the terrain-format surface"),
+				() -> assertTrue(released, "the layer must hand the program back"),
+				() -> assertTrue(!toolkit.hdWaterMapsAvailable() || mapsOnTheirUnit,
+					"the maps must be on their own units before the surface samples them"),
+				() -> assertTrue(!toolkit.hdWaterMapsAvailable() || minFilter == 9987,
+					"the water maps must carry a mip chain on their own unit: " + minFilter),
+				() -> assertTrue(stillOwned, "the region stays open across the layer's own program"),
+				() -> assertTrue(closed, "the region's end must close the seam"),
+				() -> assertTrue(lit > 0, "the surface must draw pixels: " + lit),
+				() -> assertEquals(GL11.GL_NO_ERROR, GL11.glGetError())
+			);
+		} finally {
+			HdSettings.set(HdFeature.WATER, 0);
+			HdSettings.set(HdFeature.MIPMAPS, 0);
+			toolkit.l();
+		}
+	}
+
+	@Test
+	@DisplayName("the row's custom value reaches a ground water layer too")
+	void customRow_shouldDrawTheGroundLayerThroughTheCustomSurface() {
+		HdSettings.set(HdFeature.WATER, 2);
+		HdWaterTime.reset();
+		try {
+			beginFrame();
+			cameraMatrices();
+			uploadScene();
+			toolkit.method1906(true);
+			HdSettings.set(HdFeature.MIPMAPS, 1);
+			long before = toolkit.hdWaterGroundBinds();
+			toolkit.AA(-1, 1583160, 40, 127);
+			HdSettings.set(HdFeature.MIPMAPS, 0);
+			wetLayer.method1462(new int[] { 0, 1 }, 2);
+			long binds = toolkit.hdWaterGroundBinds() - before;
+			HdWaterGate.Surface surface = toolkit.hdWaterLastGroundSurface();
+			boolean released = !toolkit.hdWaterGroundBound();
+			boolean owned = toolkit.hdWaterActive();
+			capture();
+			toolkit.l();
+			System.out.println("[hd-water-ground-custom] binds=" + binds + " surface=" + surface
+				+ " released=" + released + " regionStillOwned=" + owned);
+			assertAll(
+				() -> assertEquals(1L, binds, "the layer must draw through a terrain-format surface"),
+				() -> assertEquals(HdWaterGate.Surface.CUSTOM, surface,
+					"the row's third value is the style on terrain as on a model"),
+				() -> assertTrue(released, "the layer must hand the program back"),
+				() -> assertTrue(owned, "the region keeps its own program"),
+				() -> assertEquals(GL11.GL_NO_ERROR, GL11.glGetError())
+			);
+		} finally {
+			HdSettings.set(HdFeature.WATER, 0);
+			HdSettings.set(HdFeature.MIPMAPS, 0);
+			toolkit.l();
+		}
+	}
+
+	@Test
 	@DisplayName("the row off and a dry tile both make no caustics upload at all")
 	void off_shouldIssueNoUpload() {
 		int[] dryOnly = litMask(drawOnlyDry());
@@ -257,6 +394,247 @@ class HdCausticsGlTest {
 			() -> assertTrue(wetUploads > 0L, "the wet tile is where the upload happens"),
 			() -> assertEquals(GL11.GL_NO_ERROR, GL11.glGetError())
 		);
+	}
+
+	@Test
+	@DisplayName("a lake water layer keeps its HD surface through the client's terrain pass")
+	void lakeWater_shouldKeepItsSurfaceThroughTheTerrainPass() {
+		HdWaterTime.reset();
+		HdSettings.set(HdFeature.WATER, 0);
+		int[] terrainOnly = twoGroundPasses(wetLayer);
+		int terrainPixels = litMask(terrainOnly).length;
+
+		HdSettings.set(HdFeature.WATER, 1);
+		long before = toolkit.hdWaterGroundBinds();
+		int[] surfaceFrame;
+		long binds;
+		HdWaterGate.Surface surface;
+		boolean released;
+		boolean closed;
+		try {
+			surfaceFrame = twoGroundPasses(wetLayer);
+			binds = toolkit.hdWaterGroundBinds() - before;
+			surface = toolkit.hdWaterLastGroundSurface();
+			released = !toolkit.hdWaterGroundBound();
+			closed = !toolkit.hdWaterActive();
+		} finally {
+			HdSettings.set(HdFeature.WATER, 0);
+		}
+		int surfacePixels = litMask(surfaceFrame).length;
+		int replaced = differing(surfaceFrame, terrainOnly);
+
+		System.out.println("[hd-water-ground] lake two passes: binds=" + binds + " surface=" + surface
+			+ " released=" + released + " closed=" + closed + " px terrain=" + terrainPixels
+			+ " surface=" + surfacePixels + " differing=" + replaced);
+
+		assertAll(
+			() -> assertEquals(2L, binds,
+				"both of the client's passes over this tile must draw it as water"),
+			() -> assertEquals(HdWaterGate.Surface.STILL, surface, "a lake layer is the calm surface"),
+			() -> assertTrue(released, "the layer must hand the program back"),
+			() -> assertTrue(closed, "a layer outside a region closes the seam it opened"),
+			() -> assertTrue(surfacePixels > 0, "the water surface must paint the tile: " + surfacePixels),
+			() -> assertEquals(terrainPixels, surfacePixels,
+				"the surface must cover exactly the tile the terrain program covers"),
+			() -> assertTrue(replaced > 20,
+				"the surface must survive the terrain pass instead of being replaced: " + replaced),
+			() -> assertEquals(GL11.GL_NO_ERROR, GL11.glGetError())
+		);
+	}
+
+	@Test
+	@DisplayName("a dry tile never takes the water surface, so ground keeps its own draw")
+	void dryTile_shouldKeepTheTerrainProgram() {
+		HdWaterTime.reset();
+		HdSettings.set(HdFeature.WATER, 0);
+		// The terrain pass builds its ground atlas page on the first draw and
+		// falls back to the stock single texture for that one frame, so the frame
+		// this test compares is the second: same reason the row gets its own
+		// discarded first frame below.
+		twoGroundPasses(dryLayer);
+		int[] stock = twoGroundPasses(dryLayer);
+
+		HdSettings.set(HdFeature.WATER, 1);
+		twoGroundPasses(dryLayer);
+		long beforeGround = toolkit.hdWaterGroundBinds();
+		long beforeWater = toolkit.hdWaterBinds();
+		int[] rowOn;
+		long groundBinds;
+		long waterBinds;
+		try {
+			rowOn = twoGroundPasses(dryLayer);
+			groundBinds = toolkit.hdWaterGroundBinds() - beforeGround;
+			waterBinds = toolkit.hdWaterBinds() - beforeWater;
+		} finally {
+			HdSettings.set(HdFeature.WATER, 0);
+		}
+
+		System.out.println("[hd-water-ground] dry two passes: groundBinds=" + groundBinds
+			+ " waterBinds=" + waterBinds + " px=" + litMask(rowOn).length
+			+ " vsStock=" + differing(rowOn, stock));
+
+		assertAll(
+			() -> assertEquals(0L, groundBinds, "dry ground never runs the water surface"),
+			() -> assertEquals(0L, waterBinds, "and the seam is not even opened for it"),
+			() -> assertTrue(litMask(rowOn).length > 0, "the dry tile is still painted"),
+			() -> assertEquals(0, differing(rowOn, stock),
+				"the row must leave dry ground bit-identical: " + differing(rowOn, stock)),
+			() -> assertEquals(GL11.GL_NO_ERROR, GL11.glGetError())
+		);
+	}
+
+	@Test
+	@DisplayName("the lake reads as water in pixels: a palette body, moving ripples and the caustics net")
+	void lake_shouldReadAsWaterNotWhite() {
+		HdSettings.set(HdFeature.WATER, 1);
+		HdSettings.set(HdFeature.CAUSTICS, 1);
+		HdWaterTime.reset();
+		int[] first;
+		int[] later;
+		int[] noCaustics;
+		int[] terrainOnly;
+		try {
+			// The frame that compiles the surface program draws nothing, and the
+			// rows were off for every proof before this one, so the first water
+			// frame here is that frame. It is drawn and dropped, as the row does.
+			twoGroundPasses(wetLayer);
+			first = twoGroundPasses(wetLayer);
+			advanceTo(500L);
+			later = twoGroundPasses(wetLayer);
+			HdSettings.set(HdFeature.CAUSTICS, 0);
+			advanceTo(500L);
+			noCaustics = twoGroundPasses(wetLayer);
+			// The same tile and the same two passes with the Water row off: the
+			// terrain texture the report was showing instead of water.
+			HdSettings.set(HdFeature.WATER, 0);
+			advanceTo(500L);
+			terrainOnly = twoGroundPasses(wetLayer);
+		} finally {
+			HdSettings.set(HdFeature.WATER, 0);
+			HdSettings.set(HdFeature.CAUSTICS, 0);
+			HdWaterTime.reset();
+		}
+
+		int lit = drawnPixels(first);
+		int white = whitePixels(first);
+		int palette = palettePixels(first);
+		int moved = differing(first, later);
+		// Against `later`, not `first`: the row is toggled after the clock has
+		// advanced, so comparing with the t=0 frame would count the water's own
+		// movement as a caustics difference.
+		int net = differing(later, noCaustics);
+		int bodied = differing(first, terrainOnly);
+		System.out.println("[hd-water-ground] lake body: lit=" + lit + " white=" + white
+			+ " palette=" + palette + " moved=" + moved + " caustics=" + net
+			+ " vsTerrain=" + bodied
+			+ " mean=" + meanColour(first)
+			+ " centre=" + Integer.toHexString(first[first.length / 2 + SIZE / 2]));
+
+		assertAll(
+			() -> assertTrue(lit > 0, "the lake must be drawn at all: " + lit),
+			// The bug this pins: every surface took the layer's bound terrain
+			// texture - white for a lake - as its body, so the water was a bright
+			// scrolling sheet instead of water.
+			() -> assertTrue(white < lit / 20,
+				"the body must not be a white sheet: " + white + " of " + lit + " px"),
+			// The body must be the surface's own, not the layer's terrain texture:
+			// most of the tile has to differ from the row-off frame, which is the
+			// texture the report saw instead of water. The palette itself is
+			// proved at the seam (HdWaterSource/HdWaterPipeline) and this fixture's
+			// calm sheen is the fog colour, so the per-texel palette count is
+			// logged rather than asserted on.
+			() -> assertTrue(bodied > lit / 2,
+				"the surface must own the tile, not the terrain texture: " + bodied
+					+ " of " + lit + " px differ from the row-off frame"),
+			// Two frames of the same scene, so the body is moving water and not a
+			// still image that happens to be the right colour.
+			() -> assertTrue(moved > lit / 10,
+				"the surface must move between frames: " + moved + " px"),
+			// 634HD's net is the seabed's: the surface must not paint it, so the
+			// row on and the row off are the same lake.
+			() -> assertEquals(0, net,
+				"the lake surface is water and sky, not the caustic net: " + net + " px"),
+			() -> assertEquals(GL11.GL_NO_ERROR, GL11.glGetError())
+		);
+	}
+
+	/** The frame's mean colour over drawn pixels, for the log. */
+	private static String meanColour(int[] frame) {
+		long red = 0;
+		long green = 0;
+		long blue = 0;
+		int drawn = 0;
+		for (int pixel : frame) {
+			if ((pixel & 0xFFFFFF) == 0x0000FF) {
+				continue;
+			}
+			red += pixel >> 16 & 0xFF;
+			green += pixel >> 8 & 0xFF;
+			blue += pixel & 0xFF;
+			drawn++;
+		}
+		return "rgb(" + red / Math.max(drawn, 1) + "," + green / Math.max(drawn, 1) + ","
+			+ blue / Math.max(drawn, 1) + ")";
+	}
+
+	/** Pixels the lake actually painted: everything but the frame's clear colour. */
+	private static int drawnPixels(int[] frame) {
+		int count = 0;
+		for (int pixel : frame) {
+			if ((pixel & 0xFFFFFF) != 0x0000FF) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/** Pixels at or near white: what a white sheet would be, everywhere. */
+	private static int whitePixels(int[] frame) {
+		int count = 0;
+		for (int pixel : frame) {
+			int red = pixel >> 16 & 0xFF;
+			int green = pixel >> 8 & 0xFF;
+			int blue = pixel & 0xFF;
+			if (red >= 235 && green >= 235 && blue >= 235) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/**
+	 * Pixels carrying either end of the water palette: teal or blue-dominant.
+	 * The deep end is 0x00758e and the shallow end tints the stock texel to a
+	 * blue-grey, so both have blue above red; dry terrain in this fixture does
+	 * not, which keeps the count about the water and not about the frame.
+	 */
+	private static int palettePixels(int[] frame) {
+		int count = 0;
+		for (int pixel : frame) {
+			int red = pixel >> 16 & 0xFF;
+			int green = pixel >> 8 & 0xFF;
+			int blue = pixel & 0xFF;
+			if (blue > red + 12 && green > red) {
+				count++;
+			}
+		}
+		return count;
+	}
+
+	/**
+	 * The client's own order for a frame with no water region: the ground pass
+	 * draws the layer, then the terrain pass draws it again. This is the pair of
+	 * draws a lake in an ordinary region gets.
+	 */
+	private static int[] twoGroundPasses(GlGroundLayer layer) {
+		beginFrame();
+		cameraMatrices();
+		uploadScene();
+		toolkit.method1904();
+		toolkit.method1906(true);
+		layer.method1462(new int[] { 0, 1 }, 2);
+		layer.method1462(new int[] { 0, 1 }, 2);
+		return capture();
 	}
 
 	// -- Frames -----------------------------------------------------------
@@ -416,6 +794,42 @@ class HdCausticsGlTest {
 			worst = Math.max(worst, Math.abs(((first >> shift) & 0xFF) - ((second >> shift) & 0xFF)));
 		}
 		return worst;
+	}
+
+	/** The frame's sky: a gradient with structure, so the ripples have something to bend. */
+	private static final class Sky extends Class99_Sub1 {
+
+		private final GlCubeTexture cube;
+
+		private Sky(GlCubeTexture cube) {
+			this.cube = cube;
+		}
+
+		@Override
+		public GlCubeTexture method3232() {
+			return this.cube;
+		}
+	}
+
+	private static GlCubeTexture gradientSky() {
+		byte[][] faces = new byte[6][SKY_SIZE * SKY_SIZE * 3];
+		for (int face = 0; face < 6; face++) {
+			for (int y = 0; y < SKY_SIZE; y++) {
+				float t = y / (float) (SKY_SIZE - 1);
+				for (int x = 0; x < SKY_SIZE; x++) {
+					int index = (y * SKY_SIZE + x) * 3;
+					// A vertical gradient with two-texel bands over it: a bend of a
+					// hundredth of the cube's width crosses most of a band.
+					int band = (y >> 1 & 1) == 0 ? 55 : 0;
+					faces[face][index] = (byte) (90 + 120 * t + band);
+					faces[face][index + 1] = (byte) (120 + 100 * t + band);
+					faces[face][index + 2] = (byte) (190 + 60 * t + band);
+				}
+			}
+		}
+		GlCubeTexture cube = new GlCubeTexture(toolkit, GL11.GL_RGB, SKY_SIZE, false, faces, GL11.GL_RGB);
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+		return cube;
 	}
 
 	// -- Geometry ---------------------------------------------------------

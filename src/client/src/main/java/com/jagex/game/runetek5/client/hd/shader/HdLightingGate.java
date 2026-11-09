@@ -36,7 +36,7 @@ import com.jagex.game.runetek5.client.hd.shadow.ShadowBinding;
 public final class HdLightingGate {
 
 	/** {@code GL_MODULATE}: the only texture combine the shader reproduces. */
-	private static final int GL_MODULATE = 7681;
+	private static final int GL_MODULATE = 8448;
 
 	private HdLightingGate() {
 	}
@@ -87,7 +87,7 @@ public final class HdLightingGate {
 	public static HdDrawState drawState(HdDrawRequest request, int scenePointLights, ShadowBinding shadow) {
 		int pointLights = request.pointLights() ? HdDrawState.clampPointLights(scenePointLights) : 0;
 		return new HdDrawState(request.textured(), pointLights, shadow != null,
-			shadow == null ? 0 : shadow.radius());
+			shadow == null ? 0 : shadow.radius(), request.alphaCoverage());
 	}
 
 	/**

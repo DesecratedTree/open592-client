@@ -49,6 +49,14 @@ public final class SunShadowSubmission {
 
 	private final float[] centre = new float[3];
 
+	/**
+	 * The camera the pending casters are being recorded from, which is the camera
+	 * this seam was last called with. The next frame's map is centred on it.
+	 */
+	private final float[] recordedCentre = new float[3];
+
+	private boolean haveRecordedCentre;
+
 	private float radius = ShadowVolume.DEFAULT_RADIUS;
 
 	private boolean collecting;
@@ -60,6 +68,13 @@ public final class SunShadowSubmission {
 	private long skipped;
 
 	private long submitted;
+
+	/** Casters {@link ShadowCasterGate} refused for this frame. */
+	private long suppressed;
+
+	private long waterSuppressed;
+
+	private long effectSuppressed;
 
 	/**
 	 * Starts this frame's submission: clears last frame's casters and centres
@@ -81,11 +96,6 @@ public final class SunShadowSubmission {
 	 * centre. Clamped by {@link ShadowVolume#around}.
 	 */
 	public void beginFrame(float centreX, float centreY, float centreZ, float radius) {
-		ShadowVolume volume = ShadowVolume.around(centreX, centreY, centreZ, radius);
-		this.centre[0] = volume.centreX();
-		this.centre[1] = volume.centreY();
-		this.centre[2] = volume.centreZ();
-		this.radius = volume.radius();
 		this.casters.clear();
 		this.submitted = 0L;
 		this.collecting = true;
@@ -93,6 +103,32 @@ public final class SunShadowSubmission {
 		// this frame's casters: one frame of lag is the cost of a pass that runs
 		// before the draw it shadows, and a stationary object's shadow is exact.
 		this.recorded = this.drainPending();
+		// Those casters were placed with the camera that was current when they
+		// were recorded - this seam's last call, not the one arriving now. The
+		// volume has to be that camera's: centring it on the current camera moves
+		// the map under placements that did not move, so every shadow slides with
+		// the eye, an object that walked is drawn a frame out of place (the
+		// "wrong entity's shadow"), and the casters leaving the volume's edge drop
+		// out and back as the eye drifts, which is the flicker. The map covers
+		// the frame its casters belong to; this call's camera is kept for the next
+		// frame, whose casters are the ones the draw about to run will record.
+		float volumeX = centreX;
+		float volumeY = centreY;
+		float volumeZ = centreZ;
+		if (this.recorded > 0L && this.haveRecordedCentre) {
+			volumeX = this.recordedCentre[0];
+			volumeY = this.recordedCentre[1];
+			volumeZ = this.recordedCentre[2];
+		}
+		this.recordedCentre[0] = centreX;
+		this.recordedCentre[1] = centreY;
+		this.recordedCentre[2] = centreZ;
+		this.haveRecordedCentre = true;
+		ShadowVolume volume = ShadowVolume.around(volumeX, volumeY, volumeZ, radius);
+		this.centre[0] = volume.centreX();
+		this.centre[1] = volume.centreY();
+		this.centre[2] = volume.centreZ();
+		this.radius = volume.radius();
 	}
 
 	/**
@@ -176,9 +212,15 @@ public final class SunShadowSubmission {
 		if (ran) {
 			this.passes++;
 			this.submitted = toolkit.hdShadowCastersSubmitted();
+			this.suppressed = toolkit.hdShadowCastersSuppressed();
+			this.waterSuppressed = toolkit.hdShadowCastersWaterSuppressed();
+			this.effectSuppressed = toolkit.hdShadowCastersEffectSuppressed();
 		} else {
 			this.skipped++;
 			this.submitted = 0L;
+			this.suppressed = 0L;
+			this.waterSuppressed = 0L;
+			this.effectSuppressed = 0L;
 		}
 		return ran;
 	}
@@ -220,6 +262,11 @@ public final class SunShadowSubmission {
 		return this.radius;
 	}
 
+	/** The volume this frame's map covers, exactly as the pass is told it. */
+	public ShadowVolume volume() {
+		return ShadowVolume.around(this.centre[0], this.centre[1], this.centre[2], this.radius);
+	}
+
 	/** Frames submitted, pass or not. */
 	public long frames() {
 		return this.frames;
@@ -240,6 +287,21 @@ public final class SunShadowSubmission {
 		return this.submitted;
 	}
 
+	/** Casters the gate refused for the last completed pass, water's own surface first. */
+	public long suppressed() {
+		return this.suppressed;
+	}
+
+	/** Of the refused casters, how many were HD water's own surface. */
+	public long waterSuppressed() {
+		return this.waterSuppressed;
+	}
+
+	/** Of the refused casters, how many were additive or modulating effects. */
+	public long effectSuppressed() {
+		return this.effectSuppressed;
+	}
+
 	/** Casters the last world draw recorded for this frame's pass. */
 	public long recorded() {
 		return this.recorded;
@@ -249,7 +311,8 @@ public final class SunShadowSubmission {
 	public String stats() {
 		return "sun casters: frames=" + this.frames + " passes=" + this.passes
 			+ " skipped=" + this.skipped + " recorded=" + this.recorded
-			+ " submitted=" + this.submitted;
+			+ " submitted=" + this.submitted + " suppressed=" + this.suppressed
+			+ " (water " + this.waterSuppressed + ", effect " + this.effectSuppressed + ")";
 	}
 
 	/** Forgets the counters and the casters; the map itself is not touched. */
@@ -261,7 +324,11 @@ public final class SunShadowSubmission {
 		this.passes = 0L;
 		this.skipped = 0L;
 		this.submitted = 0L;
+		this.suppressed = 0L;
+		this.waterSuppressed = 0L;
+		this.effectSuppressed = 0L;
 		this.recorded = 0L;
+		this.haveRecordedCentre = false;
 		synchronized (this.pending) {
 			for (int index = 0; index < this.pendingCount; index++) {
 				this.pending[index] = null;

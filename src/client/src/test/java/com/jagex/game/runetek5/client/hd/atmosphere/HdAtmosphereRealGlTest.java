@@ -55,7 +55,7 @@ import org.lwjgl.opengl.GL14;
 @DisplayName("592HD atmosphere rows on a real GL driver")
 class HdAtmosphereRealGlTest {
 
-	private static final int GL_MODULATE = 7681;
+	private static final int GL_MODULATE = 8448;
 
 	private static final int CURRENT_PROGRAM = 35725;
 
@@ -217,52 +217,29 @@ class HdAtmosphereRealGlTest {
 	}
 
 	@Test
-	@DisplayName("ambient occlusion darkens contact and leaves a free fragment alone")
-	void ambientOcclusion_shouldDarkenOnlyContact() {
+	@DisplayName("the occlusion term no longer reads the sun's depth map")
+	void ambientOcclusion_shouldNotReadTheShadowMap() {
 		HdAtmosphere ao = HdAtmosphere.resolve(true, false, false, true);
 		ShadowBinding binding = contactBinding();
 
-		Pixel occludedOff = render(new Scene().z(-20.0F).sunOff().shadow(binding));
-		Pixel occludedOn = render(new Scene().z(-20.0F).sunOff().shadow(binding).atmosphere(ao));
-		Pixel freeOn = render(new Scene().z(-20.0F).sunOff().shadow(binding).texture(freeTexture).atmosphere(ao));
-		Pixel noMapOn = render(new Scene().z(-20.0F).sunOff().atmosphere(ao));
+		// The contact-occlusion stand-in is gone: the ambient is attenuated by the
+		// material's own occlusion map (stage 2 slice 2), so a shadow map bound on
+		// a draw with no material must not change a single channel. The map's own
+		// proof lives in HdLightingModelGlTest.
+		Pixel rowOff = render(new Scene().z(-20.0F).sunOff().shadow(binding));
+		Pixel rowOn = render(new Scene().z(-20.0F).sunOff().shadow(binding).atmosphere(ao));
+		Pixel noMap = render(new Scene().z(-20.0F).sunOff().atmosphere(ao));
 
-		// Ambient 0.2 alone is 51. Fully occluded it is 0.2 * (1 - 0.55) = 0.09 -> 23.
 		assertAll(
-			() -> assertPixel("row off, in contact", occludedOff, 51, 51, 51),
-			() -> assertPixel("row on, in contact", occludedOn, 23, 23, 23),
-			() -> assertPixel("row on, nothing occludes", freeOn, 51, 51, 51),
-			() -> assertPixel("row on, no map bound", noMapOn, 51, 51, 51),
-			() -> assertEquals(occludedOff.toString(), freeOn.toString(),
-				"a free fragment must not move even with the row on")
+			() -> assertPixel("row off, map bound", rowOff, 51, 51, 51),
+			() -> assertEquals(rowOff.toString(), rowOn.toString(),
+				"a bound shadow map must no longer darken the ambient: " + rowOn),
+			() -> assertEquals(rowOn.toString(), noMap.toString(),
+				"the row's state must not depend on whether a map happens to be bound")
 		);
 	}
 
-	@Test
-	@DisplayName("world position is scene space: one world point, one occlusion result")
-	void worldPosition_shouldBeSceneSpace() {
-		HdAtmosphere ao = HdAtmosphere.resolve(true, false, false, true);
-		ShadowBinding binding = tiltedBinding();
 
-		// The same world point, z = -20, reached two ways: baked into the vertex
-		// buffer, and carried by the model matrix with the buffer at z = 0.
-		Pixel baked = render(new Scene().z(0.0F).vertexZ(-20.0F).sunOff().shadow(binding)
-			.texture(midTexture).atmosphere(ao));
-		Pixel throughMatrix = render(new Scene().z(-20.0F).vertexZ(0.0F).sunOff().shadow(binding)
-			.texture(midTexture).atmosphere(ao).model(translate(0.0F, 0.0F, -20.0F)));
-		// The old reading of gl_Vertex, kept as the failing case: with the model
-		// matrix ignored, the same world point lands on a different texel.
-		Pixel modelLocal = render(new Scene().z(-20.0F).vertexZ(0.0F).sunOff().shadow(binding)
-			.texture(midTexture).atmosphere(ao));
-
-		assertAll(
-			() -> assertPixel("scene position baked into the buffer", baked, 51, 51, 51),
-			() -> assertPixel("the same scene position carried by the matrix", throughMatrix, 51, 51, 51),
-			() -> assertEquals(baked.toString(), throughMatrix.toString(),
-				"the split between the buffer and the matrix must not change the pixel"),
-			() -> assertPixel("model-local reading, which is what the shader used to do", modelLocal, 23, 23, 23)
-		);
-	}
 
 	@Test
 	@DisplayName("turning every row back off restores the pre-row pixels exactly")

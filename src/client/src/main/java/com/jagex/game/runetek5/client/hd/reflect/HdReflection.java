@@ -1,5 +1,7 @@
 package com.jagex.game.runetek5.client.hd.reflect;
 
+import com.jagex.game.runetek5.deob.Class133;
+
 /**
  * One draw's environment reflection: how much of the client's own environment
  * cube reaches the surface, as the value the fragment stage reads.
@@ -36,11 +38,34 @@ public final class HdReflection {
 	public static final int SPECULAR_SLOT = 1;
 
 	/**
-	 * The material texture environment whose combine is {@code GL_MODULATE}, the
+	 * The material texture effect whose combine is {@code GL_MODULATE}, the
 	 * only combine the lighting shader reproduces. Taking a draw from its stock
 	 * effect is only safe when its environment is this one.
 	 */
-	public static final int MODULATE_ENVIRONMENT = 1;
+	public static final int MODULATE_ENVIRONMENT = 0;
+
+	/**
+	 * The deob's own rule for the two material effects that keep a strength in
+	 * the texture alpha: slots 1 (the stock specular pass) and 7 are not depth
+	 * or coverage. {@code Class133.method3349} is the client's predicate.
+	 */
+	public static boolean isStrengthMask(int effectSlot) {
+		return !Class133.method3349(effectSlot);
+	}
+
+	/**
+	 * True when this material's texture alpha is the surface's coverage rather
+	 * than a strength mask.
+	 *
+	 * <p>A reflective surface's alpha is the specular strength (slots 1 and 7,
+	 * see {@link #isStrengthMask}), so it says nothing about opacity: writing it
+	 * into the lit fragment's alpha let the cut-out test and blending punch the
+	 * surface see-through. This is the same rule the shadow pass uses for its
+	 * cut-out casters.
+	 */
+	public static boolean alphaIsCoverage(int effectSlot, boolean hasAlphaChannel) {
+		return !hasAlphaChannel || !isStrengthMask(effectSlot);
+	}
 
 	/** How much of the cube reaches the surface at full strength. */
 	public static final float STRENGTH = 0.4F;

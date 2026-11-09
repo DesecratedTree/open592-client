@@ -18,6 +18,7 @@ import com.jagex.game.runetek5.buffer.ArrayBufferGL;
 import com.jagex.game.runetek5.buffer.ElementsBufferGL;
 import com.jagex.game.runetek5.client.hd.HdFeature;
 import com.jagex.game.runetek5.client.hd.HdSettings;
+import com.jagex.game.runetek5.client.hd.content.HdContent;
 import com.jagex.game.runetek5.config.material.MaterialType;
 import com.jagex.game.runetek5.deob.Class177;
 import com.jagex.game.runetek5.deob.Class99_Sub1;
@@ -122,6 +123,9 @@ class HdWaterRealGlTest {
 
 	private static final float TILTED_Z = 0.34F;
 
+	/** The frame's clear colour; an opacity proof paints a bright backdrop. */
+	private static int clearColour;
+
 	private static GlToolkit toolkit;
 
 	private static Frame frame;
@@ -175,6 +179,19 @@ class HdWaterRealGlTest {
 
 	private static Class177 depthTexCoords;
 
+	/** A quad whose vertex alpha is 0.375: the stock water's translucency. */
+	private static ElementsBufferGL blendedBuffer;
+
+	private static Class177 blendedVertices;
+
+	private static Class177 blendedColours;
+
+	private static Class177 blendedNormals;
+
+	private static Class177 blendedTexCoords;
+
+	private static ArrayBufferGL blendedIndices;
+
 	/**
 	 * The two environments the reflective proof swaps between. Neither is red:
 	 * this harness sets the fog colour to red, and the calm program's sheen is
@@ -182,6 +199,8 @@ class HdWaterRealGlTest {
 	 * by construction instead of proving anything.
 	 */
 	private static GlCubeTexture blueEnvironment;
+
+	private static GlCubeTexture bandedEnvironment;
 
 	private static GlCubeTexture greenEnvironment;
 
@@ -231,10 +250,17 @@ class HdWaterRealGlTest {
 		depthNormals = new Class177(depthPlaneBuffer, GL11.GL_FLOAT, 3, 16);
 		depthTexCoords = new Class177(depthPlaneBuffer, GL11.GL_FLOAT, 3, 28);
 		depthIndices = indices();
+		blendedBuffer = translucentPlane();
+		blendedVertices = new Class177(blendedBuffer, GL11.GL_FLOAT, 3, 0);
+		blendedColours = new Class177(blendedBuffer, GL11.GL_UNSIGNED_BYTE, 4, 12);
+		blendedNormals = new Class177(blendedBuffer, GL11.GL_FLOAT, 3, 16);
+		blendedTexCoords = new Class177(blendedBuffer, GL11.GL_FLOAT, 2, 28);
+		blendedIndices = indices();
 
 		checkerTexture = checker();
 
 		blueEnvironment = cube(0, 0, 255);
+		bandedEnvironment = bandedCube();
 		greenEnvironment = cube(0, 255, 0);
 		environment = new TestEnvironment(blueEnvironment);
 		toolkit.setSunCubeTexture(environment);
@@ -242,7 +268,7 @@ class HdWaterRealGlTest {
 		Path preferences = Files.createTempDirectory("hd-water");
 		HdSettings.setDirectoryForTest(preferences.toFile());
 		HdSettings.setEnabled(true, null);
-		HdSettings.set(HdFeature.WATER_HD, 1);
+		HdSettings.set(HdFeature.WATER, 1);
 		toolkit.method1900(1);
 		toolkit.method1906(true);
 	}
@@ -251,8 +277,13 @@ class HdWaterRealGlTest {
 	@BeforeEach
 	void resetWater() {
 		HdSettings.setEnabled(true, null);
-		HdSettings.set(HdFeature.WATER_HD, 1);
+		HdSettings.set(HdFeature.WATER, 1);
 		toolkit.hdWaterFlowForTest(HdWaterPipeline.DEFAULT_FLOW);
+		// These proofs measure the wave field, the palette and the sun on a
+		// surface the stock client also draws. The shipped water maps add
+		// their own ripples on top, so they are off here and proved by their
+		// own unit tests; a proof that wanted them would say so.
+		toolkit.hdWaterMapsForTest(false);
 		HdWaterTime.setForTest(0.0F);
 		environment.cube = blueEnvironment;
 	}
@@ -290,6 +321,55 @@ class HdWaterRealGlTest {
 		);
 	}
 
+	@Test
+	@DisplayName("the shipped water maps reach the surface, and their absence keeps the wave field")
+	void waterMaps_shouldReachTheSurface() {
+		// A flat blue sky hides a ripple - bending it changes no colour - so this
+		// proof reflects a sky with a band every texel: a tilted normal has to
+		// move the reflection it shows.
+		environment.cube = bandedEnvironment;
+		// The frame the row drew before the maps existed: amplitude zero, so only a
+		// sampled map can tilt this surface.
+		toolkit.hdWaterFlowForTest(0.0F);
+		int[] plain = waterFrame(0.0F, 0.0F);
+		// Let the content answer again: the reset above forces the maps off so the
+		// wave-field proofs measure the wave field.
+		toolkit.hdWaterMapsForTest();
+		int[] mapped = waterFrame(0.0F, 0.0F);
+		// With no wave field and no caustic net, the maps are the only clock-driven
+		// term left, so a surface that moves across time is a surface sampling them.
+		HdSettings.set(HdFeature.CAUSTICS, 0);
+		int[] mappedLater;
+		int[] plainLater;
+		try {
+			mappedLater = waterFrame(1.5F, 0.0F);
+			toolkit.hdWaterMapsForTest(false);
+			plainLater = waterFrame(1.5F, 0.0F);
+		} finally {
+			HdSettings.set(HdFeature.CAUSTICS, 0);
+			environment.cube = blueEnvironment;
+		}
+		boolean available = toolkit.hdWaterMapsAvailable();
+		int changed = differing(plain, mapped);
+		int drifted = differing(mapped, mappedLater);
+		int stillDrift = differing(plain, plainLater);
+		System.out.println("[hd-water] maps: available=" + available + ", frames differ in "
+			+ changed + " px; maps scroll " + drifted + " px, without them " + stillDrift
+			+ " px; " + toolkit.hdWaterStats());
+
+		assertAll(
+			() -> assertTrue(available, "the build must ship 634hd/materials/flow's three maps"),
+			// The composed 634HD body compresses a ripple's contrast compared with
+			// the old white-sheet shading, so this proves presence, not magnitude.
+			() -> assertTrue(changed > 2500,
+				"the maps must reach the surface, not sit on an unused unit: " + changed + " px"),
+			() -> assertTrue(drifted > SIZE,
+				"and their scrolled layers must animate the surface: " + drifted + " px"),
+			() -> assertEquals(0, stillDrift,
+				"without the maps and the wave field nothing on the surface may move")
+		);
+	}
+
 	@Test	@DisplayName("the specular lobe is a peak on the surface and it tracks the sun")
 	void specular_shouldFollowTheSun() {
 		// Amplitude zero: the lobe must move because of the sun, not a wave.
@@ -297,7 +377,7 @@ class HdWaterRealGlTest {
 
 		int[] peaks = new int[SUN_SWEEP.length];
 		for (int i = 0; i < SUN_SWEEP.length; i++) {
-			peaks[i] = brightestColumn(waterFrame(0.0F, SUN_SWEEP[i]));
+			peaks[i] = lobeCentre(waterFrame(0.0F, SUN_SWEEP[i]));
 		}
 		System.out.println("[hd-water] highlight column per sun " + java.util.Arrays.toString(peaks));
 
@@ -334,17 +414,17 @@ class HdWaterRealGlTest {
 		// The reference is taken before the program has ever been bound, so this is
 		// a round trip - pristine stock, HD draw, stock again - and not just two
 		// runs of the same code path.
-		HdSettings.set(HdFeature.WATER_HD, 0);
+		HdSettings.set(HdFeature.WATER, 0);
 		long bindsBefore = toolkit.hdWaterBinds();
 		int[] stock = stockWaterFrame(0.0F);
 		long bindsWhileOff = toolkit.hdWaterBinds();
 
-		HdSettings.set(HdFeature.WATER_HD, 1);
+		HdSettings.set(HdFeature.WATER, 1);
 		toolkit.hdWaterFlowForTest(HdWaterPipeline.DEFAULT_FLOW);
 		int[] hd = waterFrame(0.7F, 0.0F);
 		long bindsWhileOn = toolkit.hdWaterBinds();
 
-		HdSettings.set(HdFeature.WATER_HD, 0);
+		HdSettings.set(HdFeature.WATER, 0);
 		int[] restored = stockWaterFrame(0.0F);
 
 		int diff = differing(stock, restored);
@@ -391,7 +471,11 @@ class HdWaterRealGlTest {
 	@Test
 	@DisplayName("the scene's own water pass binds the HD program")
 	void sceneWaterPass_shouldReachTheHdProgram() {
-		HdSettings.set(HdFeature.WATER_HD, 1);
+		HdSettings.set(HdFeature.WATER, 1);
+		// The scene draws a lake with its maps bound; this harness otherwise forces
+		// them off so the wave-field proofs measure the wave field. A composed body
+		// with ripples is many colours, a body without them a smooth gradient.
+		toolkit.hdWaterMapsForTest();
 		long before = toolkit.hdWaterBinds();
 		int[] frame = sceneWaterFrame(0.7F, -1);
 		long drawn = toolkit.hdWaterBinds() - before;
@@ -404,7 +488,11 @@ class HdWaterRealGlTest {
 		assertAll(
 			() -> assertTrue(drawn > 0L, "the scene's AA pass must bind the HD water program, drew " + drawn),
 			() -> assertTrue(changed > SIZE, "and the scene frame must change with the row on: " + changed),
-			() -> assertTrue(distinctColours(frame) > 64,
+			// 634HD's body on a flat, untilted quad is a smooth tint gradient: the
+			// narrow glint contributes a handful of pixels, not the wide sheen the
+			// 96-gloss port painted across the whole face. This is anti-vacuity -
+			// a flat fill would be one colour - not a claim about how busy it looks.
+			() -> assertTrue(distinctColours(frame) > 8,
 				"the surface must not be one flat fog colour: " + distinctColours(frame))
 		);
 	}
@@ -429,15 +517,15 @@ class HdWaterRealGlTest {
 	@Test
 	@DisplayName("the custom value is a third image, and switching back is the standard one again")
 	void custom_shouldBeAThirdSurface() {
-		HdSettings.set(HdFeature.WATER_HD, 1);
+		HdSettings.set(HdFeature.WATER, 1);
 		long customsBefore = toolkit.hdWaterCustomBinds();
 		int[] standard = waterFrame(0.5F, 0.0F);
 
-		HdSettings.set(HdFeature.WATER_HD, 2);
+		HdSettings.set(HdFeature.WATER, 2);
 		int[] custom = waterFrame(0.5F, 0.0F);
 		long customsAfter = toolkit.hdWaterCustomBinds();
 
-		HdSettings.set(HdFeature.WATER_HD, 1);
+		HdSettings.set(HdFeature.WATER, 1);
 		int[] restored = waterFrame(0.5F, 0.0F);
 
 		int changed = differing(standard, custom);
@@ -482,16 +570,23 @@ class HdWaterRealGlTest {
 			+ " px; calm frames across a sky change differ in " + calmDiff
 			+ " px; calm avg rgb(" + Math.round(meanChannel(calmBlue, 0)) + ","
 			+ Math.round(meanChannel(calmBlue, 1)) + "," + Math.round(meanChannel(calmBlue, 2))
+			+ "); green sky calm avg rgb(" + Math.round(meanChannel(calmGreen, 0)) + ","
+			+ Math.round(meanChannel(calmGreen, 1)) + "," + Math.round(meanChannel(calmGreen, 2))
 			+ "); blue sky reflect avg rgb(" + Math.round(meanChannel(reflectiveBlue, 0)) + ","
 			+ Math.round(meanChannel(reflectiveBlue, 1)) + "," + Math.round(meanChannel(reflectiveBlue, 2))
 			+ "); green sky reflect avg rgb(" + Math.round(meanChannel(reflectiveGreen, 0)) + ","
 			+ Math.round(meanChannel(reflectiveGreen, 1)) + "," + Math.round(meanChannel(reflectiveGreen, 2))
 			+ "); reflective draws " + toolkit.hdWaterReflectiveBinds());
 		assertAll(
-			// The calm program has no cube sampler at all, so a repainted sky
-			// cannot touch it: this is the still-water guarantee, measured.
-			() -> assertEquals(0, calmDiff, "the calm image must not depend on the environment cube"),
-			() -> assertTrue(reflectionDiff > SIZE, "the reflection changes the water: " + reflectionDiff),
+			// 634HD's water reflects the sky at every angle, so the surface a
+			// region starts on follows the cube too. `differing` reads red only and
+			// neither cube carries red, so the channel means are the proof.
+			() -> assertTrue(meanChannel(calmBlue, 2) > meanChannel(calmGreen, 2) + 5.0,
+				"a blue sky paints the standard surface blue: " + meanChannel(calmBlue, 2)
+					+ " vs " + meanChannel(calmGreen, 2)),
+			() -> assertTrue(meanChannel(calmGreen, 1) > meanChannel(calmBlue, 1) + 5.0,
+				"a green sky paints the standard surface green: " + meanChannel(calmGreen, 1)
+					+ " vs " + meanChannel(calmBlue, 1)),
 			() -> assertTrue(meanChannel(reflectiveBlue, 2) > meanChannel(reflectiveGreen, 2) + 5.0,
 				"a blue sky paints the blue channel: " + meanChannel(reflectiveBlue, 2)
 					+ " vs " + meanChannel(reflectiveGreen, 2)),
@@ -516,7 +611,7 @@ class HdWaterRealGlTest {
 	@Test
 	@DisplayName("a reflective material with the row off is the stock frame, byte for byte, and never reaches GL")
 	void reflectiveRowOff_shouldBeTheStockFrame() {
-		HdSettings.set(HdFeature.WATER_HD, 0);
+		HdSettings.set(HdFeature.WATER, 0);
 		long bindsBefore = toolkit.hdWaterBinds();
 		int[] stock = stockWaterFrame(0.0F);
 		int[] withReflectiveMaterial = stockWaterFrameWithMaterial(0.0F, REFLECTIVE_MATERIAL);
@@ -572,8 +667,12 @@ class HdWaterRealGlTest {
 			// The breaking band is the material's, not the cube's or the fog's.
 			() -> assertTrue(fromCalm > SIZE, "breaking differs from calm: " + fromCalm),
 			() -> assertTrue(fromReflective > SIZE, "breaking differs from reflective: " + fromReflective),
-			() -> assertTrue(calmFromReflective > SIZE, "and the reflective frame is a cube image: "
-				+ calmFromReflective),
+			// 634HD's calm surface reflects the water's own tint (hdWaterTint mixed
+			// at the mirror share); the stock reflective type reflects the cube
+			// outright. The two skies differ by design, so a whole-frame
+			// difference here is the port matching upstream, not a lost body.
+			() -> assertTrue(calmFromReflective > SIZE,
+				"the calm tint and the reflective cube are different skies: " + calmFromReflective),
 			() -> assertTrue(breakingDrawn >= 1L, "the breaking program drew the frame: " + breakingDrawn)
 		);
 	}
@@ -599,7 +698,7 @@ class HdWaterRealGlTest {
 	@Test
 	@DisplayName("with the row off a breaking material is the stock frame and never reaches the breaking program")
 	void breakingRowOff_shouldBeTheStockFrame() {
-		HdSettings.set(HdFeature.WATER_HD, 0);
+		HdSettings.set(HdFeature.WATER, 0);
 		long bindsBefore = toolkit.hdWaterBinds();
 		long breakingBefore = toolkit.hdWaterBreakingBinds();
 		int[] noMaterial = waterFrameAtDepth(0.0F, -1);
@@ -635,6 +734,68 @@ class HdWaterRealGlTest {
 	}
 
 	// -- Scene helpers ----------------------------------------------------
+
+	@Test
+	@DisplayName("the surface is opaque: a bright backdrop cannot show through the waves")
+	void surface_shouldBeOpaque() {
+		// A flat, low-alpha quad under the stock water blend: the vertex colour's
+		// alpha is the only thing that could let the clear colour through, which
+		// is exactly the see-through water the row fixes. The centre of the frame
+		// is water in both draws, so any difference is the backdrop bleeding in.
+		toolkit.hdWaterFlowForTest(0.0F);
+		try {
+			clearColour = 0x000000;
+			int[] overBlack = translucentWaterFrame(0.0F);
+			clearColour = 0xFF0000;
+			int[] overRed = translucentWaterFrame(0.0F);
+			int diff = differingInCentre(overBlack, overRed);
+			System.out.println("[hd-water] opaque surface: " + diff
+				+ " centre px differ across a black/red backdrop; centre "
+				+ pixel(overBlack, SIZE / 2, SIZE / 2));
+			assertAll(
+				() -> assertEquals(0, diff, "634HD water is a surface, not a translucent overlay"),
+				() -> assertTrue(overBlack[(SIZE / 2 * SIZE + SIZE / 2) * 4 + 3] != 0,
+					"and it wrote an opaque pixel")
+			);
+		} finally {
+			clearColour = 0x000000;
+		}
+	}
+
+	@Test
+	@DisplayName("634HD's surface paints no caustic net: the row belongs to the seabed")
+	void surface_shouldNotPaintTheCausticsRow() {
+		HdSettings.set(HdFeature.WATER, 2);
+		try {
+			HdSettings.set(HdFeature.CAUSTICS, 0);
+			int[] without = waterFrameWithMaterial(0.0F, 0.0F, CALM_MATERIAL);
+			HdSettings.set(HdFeature.CAUSTICS, 1);
+			int[] with = waterFrameWithMaterial(0.0F, 0.0F, CALM_MATERIAL);
+			int diff = differing(with, without);
+			System.out.println("[hd-water] caustics on the custom surface: " + diff + " px");
+			assertEquals(0, diff, "the surface is the water and its reflection, not the net");
+		} finally {
+			HdSettings.set(HdFeature.CAUSTICS, 0);
+			HdSettings.set(HdFeature.WATER, 1);
+		}
+	}
+	/** One HD water frame of the translucent quad, under the stock water blend. */
+	private static int[] translucentWaterFrame(float seconds) {
+		HdWaterTime.setForTest(seconds);
+		beginFrame(0.0F);
+		GL11.glEnable(GL11.GL_BLEND);
+		GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+		GL13.glActiveTexture(GL13.GL_TEXTURE0);
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, waterTexture);
+		GL11.glEnable(GL11.GL_TEXTURE_2D);
+		boolean bound = toolkit.hdBeginWater();
+		assertTrue(bound, "HD water must be available for these frames");
+		toolkit.method1934(blendedColours, blendedNormals, blendedTexCoords, blendedVertices);
+		toolkit.method1967(0, 6, blendedIndices);
+		toolkit.hdEndWater();
+		finishFrame();
+		return readFrame();
+	}
 
 	/**
 	 * One frame: the water plane via the HD seam, timed at {@code seconds}.
@@ -695,11 +856,11 @@ class HdWaterRealGlTest {
 
 	/** The same scene pass with the row off, which is the stock image. */
 	private static int[] sceneWaterFrameStock(float seconds, int material) {
-		HdSettings.set(HdFeature.WATER_HD, 0);
+		HdSettings.set(HdFeature.WATER, 0);
 		try {
 			return sceneWaterFrame(seconds, material);
 		} finally {
-			HdSettings.set(HdFeature.WATER_HD, 1);
+			HdSettings.set(HdFeature.WATER, 1);
 		}
 	}
 
@@ -719,8 +880,8 @@ class HdWaterRealGlTest {
 	 * bind the HD program.
 	 */
 	private static int[] stockWaterFrameWithMaterial(float sunX, int material) {
-		int row = HdSettings.value(HdFeature.WATER_HD);
-		HdSettings.set(HdFeature.WATER_HD, 0);
+		int row = HdSettings.value(HdFeature.WATER);
+		HdSettings.set(HdFeature.WATER, 0);
 		try {
 			beginFrame(sunX);
 			toolkit.AA(-1, 1583160, 40, 127);
@@ -733,7 +894,7 @@ class HdWaterRealGlTest {
 			finishFrame();
 			return readFrame();
 		} finally {
-			HdSettings.set(HdFeature.WATER_HD, row);
+			HdSettings.set(HdFeature.WATER, row);
 		}
 	}
 
@@ -830,7 +991,8 @@ class HdWaterRealGlTest {
 		GL11.glDisable(GL11.GL_DEPTH_TEST);
 		GL11.glDisable(GL11.GL_ALPHA_TEST);
 		GL11.glDisable(GL11.GL_CULL_FACE);
-		GL11.glClearColor(0.0F, 0.0F, 0.0F, 1.0F);
+		GL11.glClearColor((clearColour >> 16 & 0xFF) / 255.0F,
+			(clearColour >> 8 & 0xFF) / 255.0F, (clearColour & 0xFF) / 255.0F, 1.0F);
 		GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
 
 		GL11.glMatrixMode(GL11.GL_PROJECTION);
@@ -856,6 +1018,24 @@ class HdWaterRealGlTest {
 	private static void finishFrame() {
 		GL11.glFinish();
 		assertEquals(GL11.GL_NO_ERROR, GL11.glGetError(), "GL error while drawing");
+	}
+
+	/** Pixels in the frame's interior (a quarter margin) whose colour changed at all. */
+	private static int differingInCentre(int[] first, int[] second) {
+		int margin = SIZE / 4;
+		int count = 0;
+		for (int y = margin; y < SIZE - margin; y++) {
+			for (int x = margin; x < SIZE - margin; x++) {
+				int index = (y * SIZE + x) * 4;
+				for (int channel = 0; channel < 3; channel++) {
+					if (Math.abs(first[index + channel] - second[index + channel]) > 1) {
+						count++;
+						break;
+					}
+				}
+			}
+		}
+		return count;
 	}
 
 	private static int[] readFrame() {
@@ -917,10 +1097,18 @@ class HdWaterRealGlTest {
 	 */
 	private static boolean isLobe(int[] frame, int column) {
 		int row = SIZE / 2;
-		int peak = frame[(row * SIZE + column) * 4];
-		int left = frame[(row * SIZE + Math.max(0, column - 48)) * 4];
-		int right = frame[(row * SIZE + Math.min(SIZE - 1, column + 48)) * 4];
+		// Brightness, not red: the 634HD water tint moves the blue and green
+		// channels, so a red-only reading would call a real lobe flat.
+		int peak = brightness(frame, row, column);
+		int left = brightness(frame, row, Math.max(0, column - 48));
+		int right = brightness(frame, row, Math.min(SIZE - 1, column + 48));
 		return peak - left > 5 && peak - right > 5;
+	}
+
+	/** The summed channels of one pixel, the same brightness brightestColumn ranks by. */
+	private static int brightness(int[] frame, int row, int column) {
+		int index = (row * SIZE + column) * 4;
+		return frame[index] + frame[index + 1] + frame[index + 2];
 	}
 
 	/** Difference between the largest and smallest step in a monotonically rising series. */
@@ -933,6 +1121,31 @@ class HdWaterRealGlTest {
 			max = Math.max(max, step);
 		}
 		return max - min;
+	}
+
+	/**
+	 * The sun's lobe centre in the middle row: a brightness-weighted centroid over
+	 * the columns within 55% of the peak. A 500-gloss glint is only a few pixels
+	 * wide, so the single brightest 8-bit column jitters by a pixel and cannot
+	 * carry a proof about where the lobe sits; the centroid averages that out.
+	 */
+	private static int lobeCentre(int[] frame) {
+		int row = SIZE / 2;
+		int peak = 0;
+		for (int x = 0; x < SIZE; x++) {
+			peak = Math.max(peak, frame[(row * SIZE + x) * 4]);
+		}
+		double weight = 0.0;
+		double total = 0.0;
+		for (int x = 0; x < SIZE; x++) {
+			int value = frame[(row * SIZE + x) * 4];
+			if (value * 100 < peak * 55) {
+				continue;
+			}
+			weight += value;
+			total += (double) x * value;
+		}
+		return weight == 0.0 ? 0 : (int) Math.round(total / weight);
 	}
 
 	/** The column of the brightest pixel, which is where the sun's lobe sits. */
@@ -1028,6 +1241,22 @@ class HdWaterRealGlTest {
 	}
 
 	/** One quad in the z = 0 plane, with white vertex colour and the given normal. */
+	/** The same quad, with the stock water path's translucent vertex alpha. */
+	private static ElementsBufferGL translucentPlane() {
+		float[][] corners = {
+			{ -HALF, -HALF, 0.0F }, { HALF, -HALF, 0.0F }, { HALF, HALF, 0.0F }, { -HALF, HALF, 0.0F }
+		};
+		float[][] uvs = { { 0.0F, 0.0F }, { 1.0F, 0.0F }, { 1.0F, 1.0F }, { 0.0F, 1.0F } };
+		ByteBuffer data = ByteBuffer.allocate(STRIDE * corners.length).order(ByteOrder.LITTLE_ENDIAN);
+		for (int i = 0; i < corners.length; i++) {
+			data.putFloat(corners[i][0]).putFloat(corners[i][1]).putFloat(corners[i][2]);
+			data.put((byte) 255).put((byte) 255).put((byte) 255).put((byte) 96);
+			data.putFloat(0.0F).putFloat(0.0F).putFloat(1.0F);
+			data.putFloat(uvs[i][0]).putFloat(uvs[i][1]);
+		}
+		return new GlVboElementsArrayBuffer(toolkit, STRIDE, data.array(), data.array().length, false);
+	}
+
 	private static ElementsBufferGL plane(float normalX, float normalY, float normalZ) {
 		float[][] corners = {
 			{ -HALF, -HALF, 0.0F }, { HALF, -HALF, 0.0F }, { HALF, HALF, 0.0F }, { -HALF, HALF, 0.0F }
@@ -1099,6 +1328,25 @@ class HdWaterRealGlTest {
 	 * the environment cube {@code GlToolkit.method1946()} hands out. Swapping
 	 * {@link #cube} is exactly what a repainted sky does to a real session.
 	 */
+	/** A sky banded every texel, so a ripple's bend changes the colour it shows. */
+	private static GlCubeTexture bandedCube() {
+		byte[][] faces = new byte[6][CUBE_SIZE * CUBE_SIZE * 3];
+		for (int face = 0; face < 6; face++) {
+			for (int y = 0; y < CUBE_SIZE; y++) {
+				for (int x = 0; x < CUBE_SIZE; x++) {
+					int index = (y * CUBE_SIZE + x) * 3;
+					boolean lit = (x + y & 1) == 0;
+					faces[face][index] = (byte) (lit ? 205 : 45);
+					faces[face][index + 1] = (byte) (lit ? 205 : 45);
+					faces[face][index + 2] = (byte) (lit ? 235 : 70);
+				}
+			}
+		}
+		GlCubeTexture cube = new GlCubeTexture(toolkit, GL11.GL_RGB, CUBE_SIZE, false, faces, GL11.GL_RGB);
+		GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
+		return cube;
+	}
+
 	private static final class TestEnvironment extends Class99_Sub1 {
 
 		private GlCubeTexture cube;
@@ -1173,4 +1421,23 @@ class HdWaterRealGlTest {
 			return null;
 		}
 	}
+
+	@Test
+	@DisplayName("the area's water reaches the surface: tint, height, glint and tiling")
+	void waterArea_shouldReachTheSurface() {
+		try {
+			environment.cube = bandedEnvironment;
+			toolkit.hdWaterFlowForTest(0.06F);
+			int[] calm = waterFrame(0.0F, 0.0F);
+			HdWaterArea.publishForTest(HdWaterArea.of(0xFF2000, 1.0F, 4.0F, 0.0F, 1.0F, 3.0F));
+			int[] area = waterFrame(0.0F, 0.0F);
+			int changed = differing(calm, area);
+			assertTrue(changed > SIZE,
+				"an area's tint, height, glint and tiling must change the surface: " + changed + " px");
+		} finally {
+			HdWaterArea.resetForTest();
+			environment.cube = blueEnvironment;
+		}
+	}
+
 }

@@ -2055,7 +2055,8 @@ public final class GlModel extends Model {
 					this.glToolkit.method1938(local96, this.normalsBuffer != null);
 					// 592HD per-pixel lighting, bound per primitive because the
 					// material effect above may have bound its own program.
-					@Pc(97) boolean hdLighting = this.glToolkit.hdBeginModelLighting(local96 >= 0, this.hdVegetation);
+					@Pc(97) boolean hdLighting = this.glToolkit.hdBeginModelLighting(local96 >= 0,
+						this.hdVegetation, local96);
 					this.glToolkit.method1967(local82 * 3, (local89 - local82) * 3, this.aClass230_1.anInterface1_5);
 					if (hdLighting) {
 						this.glToolkit.hdEndModelLighting();
@@ -3901,7 +3902,7 @@ public final class GlModel extends Model {
 			return false;
 		}
 		MaterialType type = this.glToolkit.materialProvider.getMetrics(material);
-		return type != null && type.aByte92 != 0;
+		return type != null && ShadowCutout.testsCasterAlpha(type.aByte89, type.aByte92 != 0);
 	}
 
 	@OriginalMember(owner = "client!ip", name = "c", descriptor = "()V")

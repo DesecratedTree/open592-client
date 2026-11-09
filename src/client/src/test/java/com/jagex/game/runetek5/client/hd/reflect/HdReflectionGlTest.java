@@ -76,6 +76,18 @@ class HdReflectionGlTest {
 	/** A material with no texture effect: nothing about it says "reflect". */
 	private static final int PLAIN_MATERIAL = 2;
 
+	/**
+	 * A textured reflective material: its texture alpha is the stock specular
+	 * pass's strength mask (slot 1), never the surface's shape.
+	 */
+	private static final int STRENGTH_MASK_MATERIAL = 3;
+
+	/**
+	 * The control: a textured material with no effect slot, so its texture
+	 * alpha is real coverage and a 32/255 texel is a hole.
+	 */
+	private static final int CUTOUT_MATERIAL = 4;
+
 	private static final float DEPTH = 100.0F;
 
 	private static final int CHANNEL_STEP = 2;
@@ -157,7 +169,7 @@ class HdReflectionGlTest {
 
 		// What method1928 leaves behind before model geometry: GL_MODULATE and
 		// normals present, so the lit program's preconditions hold.
-		toolkit.method1900(1);
+		toolkit.method1900(0);
 		toolkit.method1906(true);
 	}
 
@@ -226,6 +238,31 @@ class HdReflectionGlTest {
 	}
 
 	@Test
+	@DisplayName("a strength mask in the texture alpha never cuts the surface away")
+	void strengthMask_shouldDrawCovered() {
+		environment.cube = redCube;
+		Shot mask = draw(STRENGTH_MASK_MATERIAL, true, true);
+		Shot cutout = draw(CUTOUT_MATERIAL, true, true);
+
+		int[] maskCovered = litMask(mask.pixels);
+		int[] cutoutCovered = litMask(cutout.pixels);
+
+		System.out.println("[hd-reflect] alpha test on: " + maskCovered.length
+			+ " px of a strength-mask surface, " + cutoutCovered.length
+			+ " px of a coverage-alpha surface, bound " + mask.bound + "/" + cutout.bound);
+
+		assertAll(
+			() -> assertTrue(mask.bound, "the lit program owns a textured reflective draw"),
+			() -> assertTrue(maskCovered.length > 100,
+				"the text alpha is a strength, so the whole surface must stay: "
+					+ maskCovered.length),
+			() -> assertEquals(0, cutoutCovered.length,
+				"the control's alpha is coverage, so the same test must cut every texel"),
+			() -> assertEquals(GL11.GL_NO_ERROR, GL11.glGetError())
+		);
+	}
+
+	@Test
 	@DisplayName("the row off keeps the stock specular pass and makes no upload")
 	void rowOff_shouldLeaveTheStockPass() {
 		environment.cube = redCube;
@@ -256,8 +293,21 @@ class HdReflectionGlTest {
 	// -- Frames -----------------------------------------------------------
 
 	private static Shot draw(int material, boolean reflections) {
+		return draw(material, reflections, false);
+	}
+
+	/**
+	 * The same frame with the fixed-function alpha test a material that carries
+	 * an alpha channel sets before its draw: a fragment at or below half alpha
+	 * is cut away instead of drawn.
+	 */
+	private static Shot draw(int material, boolean reflections, boolean alphaTest) {
 		HdSettings.set(HdFeature.REFLECTIONS, reflections ? 1 : 0);
 		beginFrame();
+		if (alphaTest) {
+			GL11.glEnable(GL11.GL_ALPHA_TEST);
+			GL11.glAlphaFunc(GL11.GL_GREATER, 0.5F);
+		}
 		uploadScene();
 		// What GlModel calls first: the material bind, then the lit program.
 		toolkit.method1938(material, true);
@@ -280,7 +330,7 @@ class HdReflectionGlTest {
 		toolkit.UA(0xFF0000, 100, 3300);
 		toolkit.method1918(false);
 		toolkit.copyLights(0, new com.jagex.game.runetek5.cache.node.PointLight[0]);
-		toolkit.method1900(1);
+		toolkit.method1900(0);
 	}
 
 	private static void beginFrame() {
@@ -490,6 +540,10 @@ class HdReflectionGlTest {
 
 		private final MaterialType plain = new MaterialType();
 
+		private final MaterialType strengthMask = new MaterialType();
+
+		private final MaterialType cutout = new MaterialType();
+
 		private TestMaterials() {
 			this.reflective.aByte89 = (byte) HdReflection.SPECULAR_SLOT;
 			// The specular pass selects its ramp by this byte; 1 is the first.
@@ -497,6 +551,18 @@ class HdReflectionGlTest {
 			this.reflective.anInt6934 = HdReflection.MODULATE_ENVIRONMENT;
 			this.plain.aByte89 = 0;
 			this.plain.anInt6934 = HdReflection.MODULATE_ENVIRONMENT;
+			// Both textured materials carry an alpha channel, and both take the
+			// game's art rather than the RGB-only upload.
+			this.strengthMask.aByte89 = (byte) HdReflection.SPECULAR_SLOT;
+			this.strengthMask.aByte92 = 1;
+			this.strengthMask.aBoolean640 = false;
+			this.strengthMask.isSmall = true;
+			this.strengthMask.anInt6934 = HdReflection.MODULATE_ENVIRONMENT;
+			this.cutout.aByte89 = 0;
+			this.cutout.aByte92 = 1;
+			this.cutout.aBoolean640 = false;
+			this.cutout.isSmall = true;
+			this.cutout.anInt6934 = HdReflection.MODULATE_ENVIRONMENT;
 		}
 
 		@Override
@@ -504,12 +570,18 @@ class HdReflectionGlTest {
 			if (material == REFLECTIVE_MATERIAL) {
 				return this.reflective;
 			}
+			if (material == STRENGTH_MASK_MATERIAL) {
+				return this.strengthMask;
+			}
+			if (material == CUTOUT_MATERIAL) {
+				return this.cutout;
+			}
 			return material == PLAIN_MATERIAL ? this.plain : null;
 		}
 
 		@Override
 		public boolean textureAvailable(int material) {
-			return false;
+			return material == STRENGTH_MASK_MATERIAL || material == CUTOUT_MATERIAL;
 		}
 
 		@Override
@@ -524,7 +596,15 @@ class HdReflectionGlTest {
 
 		@Override
 		public int[] getPixelsArgb(int arg0, float arg1, int arg2, int arg3) {
-			return null;
+			if (arg0 != STRENGTH_MASK_MATERIAL && arg0 != CUTOUT_MATERIAL) {
+				return null;
+			}
+			// White art at alpha 32/255: as a strength mask that is a weak
+			// highlight; as coverage it is a nearly transparent texel. The
+			// material's effect slot is the only thing that tells them apart.
+			int[] pixels = new int[arg2 * arg3];
+			java.util.Arrays.fill(pixels, 0x20FFFFFF);
+			return pixels;
 		}
 	}
 }
